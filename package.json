@@ -10,7 +10,8 @@
     "serve": "tsx scripts/serve.ts",
     "dev": "pnpm build && pnpm serve",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "refetch": "tsx scripts/refetch.ts"
   },
   "dependencies": {
     "effect": "4.1.0",
@@ -24,5 +25,9 @@
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto"
-import { Effect, FileSystem, Path, Schema } from "effect"
+import { Config, Effect, FileSystem, Path, Schema } from "effect"
 import { audienceCheck } from "./audience-check.ts"
 import { tagItem } from "./audience.ts"
-import { Buffers, CalendarIndex, CalendarYear, type Deadline, ParseError, type SourceDoc, SourceKind } from "./domain.ts"
+import { Buffers, BuildWarning, CalendarIndex, CalendarYear, type Deadline, ParseError, type SourceDoc, SourceKind } from "./domain.ts"
 import { readParagraphs } from "./docx.ts"
 import { type HolidayOverrides, makeWorkingDayCheck, minusDays, nextWorkingDay, previousWorkingDay, publicHolidays } from "./holidays.ts"
 import { toIcs } from "./ics.ts"
@@ -13,7 +13,8 @@ const SourceEntry = Schema.Struct({
   title: Schema.String,
   page: Schema.String,
   file: Schema.String,
-  retrieved: Schema.String
+  retrieved: Schema.String,
+  checked: Schema.String
 })
 const SourcesFile = Schema.Record(Schema.String, Schema.Record(SourceKind, SourceEntry))
 const HolidaysFile = Schema.Record(
@@ -34,14 +35,15 @@ const slug = (s: string): string =>
 const finalise = Effect.fnUntraced(function*(
   raw: ReadonlyArray<RawDeadline>,
   isWorkingDay: (d: Date) => boolean,
-  buffers: Buffers
+  buffers: Buffers,
+  warn: (message: string) => Effect.Effect<void, BuildWarning>
 ) {
   const seen = new Map<string, number>()
   const out: Array<Deadline> = []
   for (const r of raw) {
     const computed = nextWorkingDay(r.date, isWorkingDay)
     if (r.statedDue !== undefined && r.statedDue !== computed) {
-      yield* Effect.logWarning(
+      yield* warn(
         `${r.source} ${r.date} (${r.category}): document says ${r.statedDue}, holiday rules give ${computed}. Using the document. Update data/holidays.json if needed.`
       )
     }
@@ -79,6 +81,9 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
   for (const [y, o] of Object.entries(overridesFile)) if (/^\d{4}$/.test(y)) overrides[Number(y)] = o
   const isWorkingDay = makeWorkingDayCheck(overrides)
   const generatedAt = new Date().toISOString()
+  // With STRICT=true (CI), a data warning stops the build, so the site keeps the last good data.
+  const strict = yield* Config.Boolean("STRICT").pipe(Config.withDefault(false))
+  const warn = (message: string) => strict ? Effect.fail(new BuildWarning({ message })) : Effect.logWarning(message)
 
   yield* fs.makeDirectory(path.join(outDir, "data"), { recursive: true })
   const years: Array<number> = []
@@ -101,13 +106,14 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
         title: entry.title,
         page: entry.page,
         retrieved: entry.retrieved,
+        checked: entry.checked,
         sha256: createHash("sha256").update(bytes).digest("hex")
       })
       yield* Effect.log(`${year} ${kind}: ${parsed.length} deadlines from ${entry.file}`)
     }
     if (raw.length === 0) return yield* new ParseError({ source: yearKey, message: "No source documents" })
-    const deadlines = yield* finalise(raw, isWorkingDay, buffers)
-    yield* audienceCheck(year, deadlines)
+    const deadlines = yield* finalise(raw, isWorkingDay, buffers, warn)
+    yield* audienceCheck(year, deadlines, warn)
     const holidays = [...publicHolidays(year, overrides[year])].filter((d) => d.startsWith(yearKey)).sort()
     const calendar = yield* Schema.decodeUnknownEffect(CalendarYear)({ year, buffers, generatedAt, sources: docs, holidays, deadlines })
     yield* fs.writeFileString(path.join(outDir, "data", `${year}.json`), JSON.stringify(calendar))

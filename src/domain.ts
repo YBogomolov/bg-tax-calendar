@@ -40,7 +40,10 @@ export const SourceDoc = Schema.Struct({
   kind: SourceKind,
   title: Schema.String,
   page: Schema.String,
+  /** Day when the document content last changed in this repository. */
   retrieved: IsoDate,
+  /** Day when the refetch last compared the document with the NRA website. */
+  checked: IsoDate,
   sha256: Schema.String
 })
 export type SourceDoc = typeof SourceDoc.Type
@@ -73,6 +76,10 @@ export const CalendarIndex = Schema.Struct({
   feeds: Schema.Array(Feed)
 })
 export type CalendarIndex = typeof CalendarIndex.Type
+
+export class BuildWarning extends Schema.TaggedError<BuildWarning>()("BuildWarning", {
+  message: Schema.String
+}) {}
 
 export class ParseError extends Schema.TaggedError<ParseError>()("ParseError", {
   source: Schema.String,

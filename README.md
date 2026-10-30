@@ -55,7 +55,7 @@ The National Revenue Agency (НАП, NRA) publishes two calendars every year as 
 | Tax calendar (Данъчен календар) | <https://nra.bg/wps/portal/nra/calendar/calendar> → "Данъчен календар 2026 г." |
 | Social-insurance calendar (Осигурителен календар) | Same page → "Осигурителен календар 2026 г." |
 
-The project keeps the original files in `data/sources/<year>/`. The build parses these files directly. Nobody types deadlines by hand.
+The project keeps the original files in `data/sources/<year>/`. The build parses these files directly. Nobody types deadlines by hand. A monthly workflow downloads the files again (see [Monthly refetch](#monthly-refetch)).
 
 The two documents are different:
 
@@ -131,9 +131,47 @@ Open "Calendar feeds" on the page. Click "Subscribe" for the feeds that match yo
 
 Each deadline is an all-day event on its moved date. The profile feeds also contain one event on the safe start day and one event on the tight start day.
 
-## Add a new year or update a calendar
+## GitHub Pages
 
-The NRA usually publishes the calendar for the next year in January. The NRA website blocks automated downloads, so download the files in a browser.
+The workflow `.github/workflows/deploy.yml` builds the site and publishes it on GitHub Pages:
+
+- A push to `master` starts a build and a deployment.
+- A pull request starts a build only.
+- The build runs the type check, the tests and a strict build. In a strict build (`STRICT=true`), a data warning stops the build. The site then keeps the last good data.
+
+The site is at <https://ybogomolov.github.io/bg-tax-calendar/>. All paths in the site are relative, so the same `dist/` also works on the Mac mini.
+
+To enable GitHub Pages once, set **Settings → Pages → Source** to **GitHub Actions**.
+
+## Monthly refetch
+
+The workflow `.github/workflows/refetch.yml` runs at 05:17 UTC on the first day of each month. You can also start it from the **Actions** tab ("Run workflow"). The workflow does these steps:
+
+1. It opens <https://nra.bg/wps/portal/nra/calendar/calendar> and finds the links to the yearly tax and social-insurance calendars.
+2. It downloads each `.docx` file.
+3. If a file is new or changed, the parser reads it. If the parser rejects the file, the workflow stops and the old file stays.
+4. It writes new files to `data/sources/<year>/` and updates `data/sources/sources.json`. For a new year, it also adds the year to `data/holidays.json`.
+5. It runs the tests and a strict build.
+6. It commits the result to `master` and deploys the site.
+
+Each run records the date of the check (`checked`) in `sources.json`, also when no document changed. The site footer shows this date. The commit also keeps the schedule active: GitHub disables scheduled workflows in a public repository after 60 days without activity.
+
+If the workflow fails, GitHub sends an email to the repository owner. Read the job log:
+
+- `FetchError`: the NRA website did not return a document. Start the workflow again later.
+- `ParseError`: the NRA changed the layout of a page or a document. Adapt `src/refetch.ts` or `src/parse.ts`.
+- `BuildWarning`: the NRA changed the wording, or a date does not agree with the holiday rules. Adapt `src/audience.ts` or `data/holidays.json`.
+
+The refetch identifies itself with the User-Agent `bg-tax-calendar (+https://github.com/YBogomolov/bg-tax-calendar)`. To run it on your computer, use `pnpm refetch`.
+
+## Add a new year manually
+
+The monthly refetch adds a new year when the NRA lists it. To add a year before the next run, use one of these procedures:
+
+- Start the refetch workflow from the **Actions** tab.
+- Run `pnpm refetch` on your computer, then commit the changes in `data/`.
+
+If the refetch cannot read the NRA website, add the files by hand:
 
 1. Open <https://nra.bg/wps/portal/nra/calendar/calendar>.
 2. Download the tax calendar and the social-insurance calendar (`.docx`).
@@ -178,10 +216,13 @@ The Council of Ministers can declare extra days off or working Saturdays. The bu
 | `src/audience-check.ts` | Build-time check of the core obligations of each profile |
 | `src/profile.ts` | Profiles and calendar feeds |
 | `src/ics.ts` | iCalendar export |
+| `src/refetch.ts` | Downloads the calendars from the NRA website |
 | `src/build-data.ts` | Effect program that writes `dist/data/*.json` and `dist/calendar.ics` |
 | `web/` | Page, styles and browser code |
 | `scripts/build.ts` | Full build: data, bundle and static files |
 | `scripts/serve.ts` | Static server for `dist/` |
+| `scripts/refetch.ts` | Runs the refetch and writes the GitHub Actions output |
+| `.github/workflows/` | Build, deployment and monthly refetch |
 | `test/` | Tests that use the real 2026 documents |
 
 ## Commands
@@ -190,6 +231,7 @@ The Council of Ministers can declare extra days off or working Saturdays. The bu
 | --- | --- |
 | `pnpm build` | Builds the full site into `dist/` |
 | `pnpm data` | Builds only the data files |
+| `pnpm refetch` | Downloads the current NRA calendars into `data/sources/` |
 | `pnpm serve` | Serves `dist/` |
 | `pnpm test` | Runs the tests |
 | `pnpm typecheck` | Runs the TypeScript compiler |

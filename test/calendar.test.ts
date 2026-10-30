@@ -7,6 +7,7 @@ import type { Deadline } from "../src/domain.ts"
 import { makeWorkingDayCheck, minusDays, nextWorkingDay, orthodoxEaster, previousWorkingDay, publicHolidays, toIso } from "../src/holidays.ts"
 import { toIcs } from "../src/ics.ts"
 import { parseSocial, parseTax } from "../src/parse.ts"
+import { findCalendarLinks, findDocxLink, INDEX_URL } from "../src/refetch.ts"
 
 const source = (name: string) => readFileSync(new URL(`../data/sources/2026/${name}`, import.meta.url))
 
@@ -173,5 +174,38 @@ describe("ics", () => {
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(3)
     expect(ics).toContain("DTSTART;VALUE=DATE:20251231\r\n")
     expect(ics).toContain("DTSTART;VALUE=DATE:20260107\r\n")
+  })
+})
+
+describe("refetch", () => {
+  it("finds the yearly calendar pages on the NRA index page", () => {
+    const html = `<ul>
+      <li><a href="https://nra.bg/wps/portal/nra/calendar/5efeb8b2-e09c-4bb2-9e5f-0d330771bde6" >Данъчен календар 2026 г.</a></li>
+      <li><a href="/wps/portal/nra/calendar/c6793df8-22a5-4ad8-8dc9-b4c97e95562d">Осигурителен календар 2026 г.</a></li>
+      <li><a href="/wps/portal/nra/other">Друга страница</a></li>
+    </ul>`
+    expect(findCalendarLinks(html, INDEX_URL)).toEqual([
+      {
+        kind: "tax",
+        year: 2026,
+        title: "Данъчен календар 2026 г.",
+        page: "https://nra.bg/wps/portal/nra/calendar/5efeb8b2-e09c-4bb2-9e5f-0d330771bde6"
+      },
+      {
+        kind: "social",
+        year: 2026,
+        title: "Осигурителен календар 2026 г.",
+        page: "https://nra.bg/wps/portal/nra/calendar/c6793df8-22a5-4ad8-8dc9-b4c97e95562d"
+      }
+    ])
+  })
+
+  it("finds the DOCX link on a calendar page", () => {
+    const html = `<a href='/wps/wcm/connect/nra.bg25863/79bd/download_24.png?MOD=AJPERES'></a>
+      <a href='/wps/wcm/connect/nra.bg25863/102c/%D0%94%D0%90%D0%9D.docx?MOD=AJPERES&amp;CACHEID=ROOTWORKSPACE-102c'>`
+    expect(findDocxLink(html, "https://nra.bg/wps/portal/nra/calendar/x")).toBe(
+      "https://nra.bg/wps/wcm/connect/nra.bg25863/102c/%D0%94%D0%90%D0%9D.docx?MOD=AJPERES&CACHEID=ROOTWORKSPACE-102c"
+    )
+    expect(findDocxLink("<p>No file</p>", INDEX_URL)).toBeUndefined()
   })
 })

@@ -1,5 +1,5 @@
 import { Effect } from "effect"
-import type { Deadline, Tag } from "./domain.ts"
+import type { BuildWarning, Deadline, Tag } from "./domain.ts"
 import { narrowAll } from "./profile.ts"
 
 /** Expected obligations per profile. A miss means that the NRA changed its wording. */
@@ -13,7 +13,11 @@ const EXPECTED: ReadonlyArray<{ readonly tag: Tag; readonly label: string; reado
   { tag: "property", label: "property tax", test: /недвижимите имоти/, min: 2 }
 ]
 
-export const audienceCheck = Effect.fnUntraced(function*(year: number, deadlines: ReadonlyArray<Deadline>) {
+export const audienceCheck = Effect.fnUntraced(function*(
+  year: number,
+  deadlines: ReadonlyArray<Deadline>,
+  warn: (message: string) => Effect.Effect<void, BuildWarning>
+) {
   for (const tag of ["freelancer", "trader", "vat", "property"] as const) {
     const list = narrowAll(deadlines, [tag])
     yield* Effect.log(`${year} profile ${tag}: ${list.length} deadlines, ${list.reduce((n, d) => n + d.items.length, 0)} items`)
@@ -21,7 +25,7 @@ export const audienceCheck = Effect.fnUntraced(function*(year: number, deadlines
   for (const e of EXPECTED) {
     const found = narrowAll(deadlines, [e.tag]).flatMap((d) => d.items).filter((i) => e.test.test(i.text)).length
     if (found < e.min) {
-      yield* Effect.logWarning(`${year} profile ${e.tag}: expected at least ${e.min} × ${e.label}, found ${found}. Check src/audience.ts.`)
+      yield* warn(`${year} profile ${e.tag}: expected at least ${e.min} × ${e.label}, found ${found}. Check src/audience.ts.`)
     }
   }
 })

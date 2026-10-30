@@ -1,0 +1,73 @@
+name: Refetch NRA calendars
+
+on:
+  schedule:
+    # 05:17 UTC on the first day of each month.
+    - cron: "17 5 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refetch
+  cancel-in-progress: false
+
+jobs:
+  refetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Downloads the calendars that nra.bg lists. A document that the parser rejects stops the job.
+      - id: refetch
+        run: pnpm refetch
+
+      # Do not commit data that does not build.
+      - run: pnpm test
+
+      - run: pnpm build
+        env:
+          STRICT: "true"
+
+      - id: commit
+        run: |
+          if git diff --quiet -- data; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if [ "${{ steps.refetch.outputs.changed }}" = "true" ]; then
+            git commit -m "data: update NRA calendars"
+          else
+            git commit -m "data: check NRA calendars (no changes)"
+          fi
+          git push
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+  # A push with GITHUB_TOKEN does not start other workflows, so deploy from here.
+  deploy:
+    needs: refetch
+    if: needs.refetch.outputs.committed == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ github.event.repository.default_branch }}

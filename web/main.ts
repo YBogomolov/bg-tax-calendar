@@ -502,7 +502,7 @@ const renderFoot = (s: State) => {
       ...s.data.sources.flatMap((src, i) => [
         i > 0 ? ", " : "",
         h("a", { href: src.page, rel: "noopener", target: "_blank" }, src.title),
-        ` (retrieved ${src.retrieved})`
+        ` (retrieved ${src.retrieved}, checked ${src.checked})`
       ]),
       `. Built ${generated}.`
     ),
