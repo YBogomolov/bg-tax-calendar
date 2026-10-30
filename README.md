@@ -139,7 +139,7 @@ The workflow `.github/workflows/deploy.yml` builds the site and publishes it on 
 - A pull request starts a build only.
 - The build runs the type check, the tests and a strict build. In a strict build (`STRICT=true`), a data warning stops the build. The site then keeps the last good data.
 
-The site is at <https://ybogomolov.github.io/bg-tax-calendar/>. All paths in the site are relative, so the same `dist/` also works on the Mac mini.
+The site is at <https://ybogomolov.me/bg-tax-calendar/>. All paths in the site are relative, so the same `dist/` also works on the Mac mini.
 
 To enable GitHub Pages once, set **Settings → Pages → Source** to **GitHub Actions**.
 
