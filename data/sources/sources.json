@@ -1,0 +1,16 @@
+{
+  "2026": {
+    "tax": {
+      "title": "Данъчен календар 2026 г.",
+      "page": "https://nra.bg/wps/portal/nra/calendar/5efeb8b2-e09c-4bb2-9e5f-0d330771bde6",
+      "file": "tax.docx",
+      "retrieved": "2026-10-30"
+    },
+    "social": {
+      "title": "Осигурителен календар 2026 г.",
+      "page": "https://nra.bg/wps/portal/nra/calendar/c6793df8-22a5-4ad8-8dc9-b4c97e95562d",
+      "file": "social.docx",
+      "retrieved": "2026-10-30"
+    }
+  }
+}
