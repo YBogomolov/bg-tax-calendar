@@ -1,7 +1,7 @@
 import { Data, Effect } from "effect"
 import type { CalendarIndex, CalendarYear, Deadline, Feed, SourceKind } from "../src/domain.ts"
 import { type Activity, defaultProfile, mergeSocial, narrowAll, type Profile, profileTags } from "../src/profile.ts"
-import { actionLabel, CATEGORY_NAMES } from "./labels.ts"
+import { actionLabel, CATEGORY_NAMES, CATEGORY_TITLES } from "./labels.ts"
 
 // ---------------------------------------------------------------------------
 // Data loading
@@ -26,7 +26,7 @@ const fetchJson = <A>(url: string) =>
     catch: (e) => new LoadError({ url, message: String(e) })
   })
 
-const SOURCE_NAMES: Record<SourceKind, string> = { tax: "Tax calendar", social: "Social-insurance calendar" }
+const SOURCE_NAMES: Record<SourceKind, string> = { tax: "Данъчен календар", social: "Осигурителен календар" }
 
 // ---------------------------------------------------------------------------
 // Dates (ISO strings, computed in UTC so that the host time zone has no effect)
@@ -46,20 +46,25 @@ const todayInSofia = (): string => {
   return `${get("year")}-${get("month")}-${get("day")}`
 }
 
-const fmtLong = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })
-const fmtShort = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
-const fmtMonth = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" })
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+const fmtLong = new Intl.DateTimeFormat("bg-BG", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })
+const fmtShort = new Intl.DateTimeFormat("bg-BG", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+const fmtMonth = new Intl.DateTimeFormat("bg-BG", { month: "long", timeZone: "UTC" })
+const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
+const fmtDate = new Intl.DateTimeFormat("bg-BG", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+/** Bulgarian counted forms: 1 срок, 2 срока; 1 ден, 2 дни. */
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 const relative = (today: string, iso: string): string => {
   const n = diffDays(today, iso)
-  if (n === 0) return "today"
-  if (n === 1) return "tomorrow"
-  if (n === -1) return "yesterday"
-  return n > 0 ? `in ${n} days` : `${-n} days ago`
+  if (n === 0) return "днес"
+  if (n === 1) return "утре"
+  if (n === -1) return "вчера"
+  return n > 0 ? `след ${plural(n, "ден", "дни")}` : `преди ${plural(-n, "ден", "дни")}`
 }
 
-const weeks = (days: number) => days % 7 === 0 ? `${days / 7} week${days === 7 ? "" : "s"}` : `${days} days`
+const weeks = (days: number) => days % 7 === 0 ? plural(days / 7, "седмица", "седмици") : plural(days, "ден", "дни")
 
 // ---------------------------------------------------------------------------
 // State
@@ -127,10 +132,10 @@ const statusOf = (d: Deadline, today: string): Status => {
 }
 const STATUS_LABEL: Record<Status, string> = {
   upcoming: "",
-  safe: "Start now",
-  tight: "Tight: start today",
-  due: "Due today",
-  past: "Past"
+  safe: "Започнете сега",
+  tight: "Спешно: започнете днес",
+  due: "Срокът е днес",
+  past: "Изтекъл"
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +206,7 @@ const renderFilters = (s: State, rerender: () => void) => {
     .map(([cat, { source, n }]) => {
       const chip = h(
         "button",
-        { type: "button", class: "chip", "aria-pressed": String(!s.hidden.has(cat)), title: CATEGORY_NAMES[cat] ?? cat },
+        { type: "button", class: "chip", "aria-pressed": String(!s.hidden.has(cat)), title: CATEGORY_TITLES[cat] ?? CATEGORY_NAMES[cat] ?? cat },
         h("i", { class: `dot ${source}` }),
         `${cat} `,
         h("span", { class: "muted" }, String(n))
@@ -220,13 +225,13 @@ const renderHeader = (s: State) => {
   $("year-label").textContent = String(s.data.year)
   const { safeDays, tightDays } = s.data.buffers
   if (s.view === "self") {
-    const parts = [s.profile.activity === "freelancer" ? "freelancer" : "sole trader (ЕТ)"]
-    if (s.profile.vat) parts.push("VAT-registered")
-    if (s.profile.property) parts.push("property owner")
+    const parts = [s.profile.activity === "freelancer" ? "свободна професия" : "едноличен търговец (ЕТ)"]
+    if (s.profile.vat) parts.push("регистрация по ДДС")
+    if (s.profile.property) parts.push("собственик на имот")
     $("subtitle").textContent =
-      `Self-employed (самоосигуряващо се лице): ${parts.join(", ")}. Start ${weeks(safeDays)} before each deadline, ${weeks(tightDays)} at the latest.`
+      `Самоосигуряващо се лице: ${parts.join(", ")}. Започнете ${weeks(safeDays)} преди всеки срок, най-късно ${weeks(tightDays)} преди него.`
   } else {
-    $("subtitle").textContent = "All deadlines from the official calendars of the National Revenue Agency (НАП)"
+    $("subtitle").textContent = "Всички срокове от официалните календари на Националната агенция за приходите (НАП)"
   }
 
   const recommended = new Set(
@@ -240,15 +245,15 @@ const renderHeader = (s: State) => {
   )
   const base = new URL(".", location.href)
   $("feeds").replaceChildren(
-    h("p", { class: "muted" }, "Subscribe in Apple Calendar or Google Calendar. The self-employed feeds also contain the start days."),
+    h("p", { class: "muted" }, "Абонирайте се в Apple Calendar или Google Calendar. Календарите за самоосигуряващи се съдържат и дните за начало."),
     ...s.feeds.map((f) => {
       const url = new URL(f.file, base)
       return h(
         "div",
         { class: recommended.has(f.file) ? "feed recommended" : "feed" },
         h("span", {}, f.title),
-        h("a", { href: `webcal://${url.host}${url.pathname}` }, "Subscribe"),
-        h("a", { href: f.file, download: true }, "Download")
+        h("a", { href: `webcal://${url.host}${url.pathname}` }, "Абониране"),
+        h("a", { href: f.file, download: true }, "Изтегляне")
       )
     })
   )
@@ -257,16 +262,16 @@ const renderHeader = (s: State) => {
 const renderLegend = (s: State) => {
   const { safeDays, tightDays } = s.data.buffers
   $("legend").replaceChildren(
-    h("span", {}, h("i", { class: "dot tax" }), "Tax deadline"),
-    h("span", {}, h("i", { class: "dot social" }), "Social-insurance deadline"),
+    h("span", {}, h("i", { class: "dot tax" }), "Данъчен срок"),
+    h("span", {}, h("i", { class: "dot social" }), "Осигурителен срок"),
     ...(s.view === "self"
       ? [
-        h("span", {}, h("i", { class: "mark safe" }), `Start (${weeks(safeDays)} before)`),
-        h("span", {}, h("i", { class: "mark tight" }), `Latest start (${weeks(tightDays)} before)`)
+        h("span", {}, h("i", { class: "mark safe" }), `Начало (${weeks(safeDays)} преди срока)`),
+        h("span", {}, h("i", { class: "mark tight" }), `Най-късно начало (${weeks(tightDays)} преди срока)`)
       ]
       : []),
-    h("span", {}, h("i", { class: "sw holiday" }), "Public holiday"),
-    h("span", {}, h("i", { class: "sw today" }), "Today")
+    h("span", {}, h("i", { class: "sw holiday" }), "Официален празник"),
+    h("span", {}, h("i", { class: "sw today" }), "Днес")
   )
 }
 
@@ -329,10 +334,10 @@ const renderMonths = (s: State, rerender: () => void) => {
       if (iso === s.selected) classes.push("selected")
       const label = [
         fmtLong.format(parseIso(iso)),
-        holidays.has(iso) && "public holiday",
-        info.due.length > 0 && `${info.due.length} deadlines`,
-        info.safe.length > 0 && `start ${info.safe.length}`,
-        info.tight.length > 0 && `latest start for ${info.tight.length}`
+        holidays.has(iso) && "официален празник",
+        info.due.length > 0 && plural(info.due.length, "срок", "срока"),
+        info.safe.length > 0 && `начало: ${info.safe.length}`,
+        info.tight.length > 0 && `най-късно начало: ${info.tight.length}`
       ].filter(Boolean).join(", ")
       const sources = new Set(info.due.map((d) => d.source))
       const cell = h(
@@ -361,7 +366,7 @@ const renderMonths = (s: State, rerender: () => void) => {
     return h(
       "article",
       { class: current ? "month current" : "month" },
-      h("h3", {}, fmtMonth.format(parseIso(first)), h("small", {}, count > 0 ? `${count} deadline${count === 1 ? "" : "s"}` : "")),
+      h("h3", {}, capitalise(fmtMonth.format(parseIso(first))), h("small", {}, count > 0 ? plural(count, "срок", "срока") : "")),
       h("div", { class: "grid" }, cells)
     )
   })
@@ -384,16 +389,16 @@ const card = (s: State, d: Deadline) => {
         "div",
         { class: "card-top" },
         h("span", { class: "badge", title: SOURCE_NAMES[d.source] }, d.category),
-        name !== undefined && h("span", { class: "card-name" }, name),
+        name !== undefined && h("span", { class: "card-name", title: CATEGORY_TITLES[d.category] }, name),
         status !== "upcoming" && status !== "past" && h("span", { class: `pill ${status}` }, STATUS_LABEL[status])
       ),
       h("p", { class: "preview" }, preview),
       h(
         "p",
         { class: "timeline" },
-        h("span", { title: `${weeks(safeDays)} before the deadline` }, h("i", { class: "mark safe" }), `Start ${fmtShort.format(parseIso(d.startSafe))}`),
-        h("span", { title: `${weeks(tightDays)} before the deadline` }, h("i", { class: "mark tight" }), `Latest ${fmtShort.format(parseIso(d.startTight))}`),
-        h("span", {}, `Due ${fmtShort.format(parseIso(d.due))}`)
+        h("span", { title: `${weeks(safeDays)} преди срока` }, h("i", { class: "mark safe" }), `Начало ${fmtShort.format(parseIso(d.startSafe))}`),
+        h("span", { title: `${weeks(tightDays)} преди срока` }, h("i", { class: "mark tight" }), `Най-късно ${fmtShort.format(parseIso(d.startTight))}`),
+        h("span", {}, `Срок ${fmtShort.format(parseIso(d.due))}`)
       )
     ),
     d.group !== d.category && h("p", { class: "group" }, d.group),
@@ -406,7 +411,7 @@ const card = (s: State, d: Deadline) => {
     ),
     d.notes.map((n) => h("p", { class: "note" }, n)),
     d.date !== d.due &&
-      h("p", { class: "note moved" }, `The calendar date is ${fmtShort.format(parseIso(d.date))}, a non-working day, so the deadline moves to the next working day.`)
+      h("p", { class: "note moved" }, `Датата по календара е ${fmtShort.format(parseIso(d.date))} — неприсъствен ден, затова срокът изтича в първия следващ работен ден.`)
   )
 }
 
@@ -445,31 +450,31 @@ const renderPanel = (s: State, rerender: () => void) => {
     }
     const info = dayIndex(s, list).get(day) ?? { due: [], safe: [], tight: [] }
     const nodes: Array<Node> = [h("p", { class: "rel" }, relative(s.today, day))]
-    if (info.due.length > 0) nodes.push(section("Deadlines on this day", undefined, info.due.map((d) => card(s, d))))
-    if (info.safe.length > 0) nodes.push(section(`Start (${weeks(safeDays)} before)`, undefined, info.safe.map((d) => card(s, d))))
-    if (info.tight.length > 0) nodes.push(section(`Latest start (${weeks(tightDays)} before)`, undefined, info.tight.map((d) => card(s, d))))
-    if (nodes.length === 1) nodes.push(h("p", { class: "empty" }, "Nothing on this day."))
+    if (info.due.length > 0) nodes.push(section("Срокове на този ден", undefined, info.due.map((d) => card(s, d))))
+    if (info.safe.length > 0) nodes.push(section(`Начало (${weeks(safeDays)} преди срока)`, undefined, info.safe.map((d) => card(s, d))))
+    if (info.tight.length > 0) nodes.push(section(`Най-късно начало (${weeks(tightDays)} преди срока)`, undefined, info.tight.map((d) => card(s, d))))
+    if (nodes.length === 1) nodes.push(h("p", { class: "empty" }, "Няма нищо за този ден."))
     body.replaceChildren(...nodes)
     return
   }
 
-  $("panel-title").textContent = "Upcoming"
+  $("panel-title").textContent = "Предстоящи"
   back.hidden = true
   const nodes: Array<Node> = []
 
   // Deadlines whose safe start day has come: work on them now, most urgent first.
   const active = list.filter((d) => d.startSafe <= s.today && d.due >= s.today).sort((a, b) => a.due.localeCompare(b.due))
-  if (active.length > 0) nodes.push(section("Work on now", `${active.length} open`, active.map((d) => card(s, d))))
+  if (active.length > 0) nodes.push(section("За работа сега", `${active.length} активни`, active.map((d) => card(s, d))))
 
   // Later deadlines, grouped by the day to start.
   const later = groupBy(list.filter((d) => d.startSafe > s.today), (d) => d.startSafe)
   const limit = addDays(s.today, s.horizon)
   const shown = later.filter(([iso], i) => iso <= limit || i < 4)
   for (const [iso, items] of shown) {
-    nodes.push(section(`Start ${fmtLong.format(parseIso(iso))}`, relative(s.today, iso), items.map((d) => card(s, d))))
+    nodes.push(section(`Начало ${fmtLong.format(parseIso(iso))}`, relative(s.today, iso), items.map((d) => card(s, d))))
   }
   if (shown.length < later.length) {
-    const more = h("button", { type: "button", class: "btn more" }, "Show more")
+    const more = h("button", { type: "button", class: "btn more" }, "Покажи още")
     more.onclick = () => {
       s.horizon += 60
       rerender()
@@ -484,8 +489,8 @@ const renderPanel = (s: State, rerender: () => void) => {
         "p",
         { class: "empty" },
         yearOver
-          ? `No more deadlines in the ${s.data.year} calendar. The NRA usually publishes the next calendar in January. Add it to data/sources and rebuild.`
-          : "No upcoming deadlines match the filters."
+          ? `Няма повече срокове в календара за ${s.data.year} г. НАП обикновено публикува следващия календар през януари. Сайтът го изтегля автоматично в началото на всеки месец.`
+          : "Няма предстоящи срокове за избраните филтри."
       )
     )
   }
@@ -493,25 +498,25 @@ const renderPanel = (s: State, rerender: () => void) => {
 }
 
 const renderFoot = (s: State) => {
-  const generated = new Date(s.data.generatedAt).toLocaleString("en-GB", { timeZone: "Europe/Sofia" })
+  const generated = new Date(s.data.generatedAt).toLocaleString("bg-BG", { timeZone: "Europe/Sofia" })
   $("foot").replaceChildren(
     h(
       "p",
       {},
-      "Source of truth: ",
+      "Източник: ",
       ...s.data.sources.flatMap((src, i) => [
         i > 0 ? ", " : "",
         h("a", { href: src.page, rel: "noopener", target: "_blank" }, src.title),
-        ` (retrieved ${src.retrieved}, checked ${src.checked})`
+        ` (изтеглен на ${fmtDate.format(parseIso(src.retrieved))}, проверен на ${fmtDate.format(parseIso(src.checked))})`
       ]),
-      `. Built ${generated}.`
+      `. Генериран на ${generated}.`
     ),
     h(
       "p",
       {},
-      "Deadlines that fall on a weekend or public holiday move to the next working day. Start days move back to the previous working day. ",
-      "The self-employed view shows the obligations of a self-insured person for their own income. It leaves out obligations as an employer or payer of income. ",
-      "Always check the NRA documents before you file. This page is not legal advice."
+      "Срок, който изтича в неприсъствен ден, се премества в първия следващ работен ден. Денят за начало се премества в предходния работен ден. ",
+      "Изгледът за самоосигуряващи се показва задълженията на самоосигуряващото се лице за собствените му доходи. Задълженията като работодател или платец на доходи не са включени. ",
+      "Винаги проверявайте документите на НАП, преди да подадете декларация. Тази страница не е правна консултация."
     )
   )
 }
@@ -521,7 +526,7 @@ const renderFoot = (s: State) => {
 // ---------------------------------------------------------------------------
 
 const showError = (message: string) => {
-  $("panel-body").replaceChildren(h("p", { class: "empty" }, `Cannot load the calendar: ${message}`))
+  $("panel-body").replaceChildren(h("p", { class: "empty" }, `Календарът не може да се зареди: ${message}`))
 }
 
 const pickYear = (years: ReadonlyArray<number>, today: string): number | undefined => {
@@ -535,7 +540,7 @@ const main = Effect.gen(function*() {
   const today = todayInSofia()
   const index = yield* fetchJson<CalendarIndex>("data/index.json")
   const year = pickYear(index.years, today)
-  if (year === undefined) return yield* new LoadError({ url: "data/index.json", message: "No years available" })
+  if (year === undefined) return yield* new LoadError({ url: "data/index.json", message: "Няма налични години" })
   const data = yield* fetchJson<CalendarYear>(`data/${year}.json`)
   const state: State = {
     ...loadPrefs(),

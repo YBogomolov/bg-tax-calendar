@@ -48,9 +48,9 @@ export const mergeSocial = (list: ReadonlyArray<Deadline>): Array<Deadline> => {
 
 /** Calendar feeds written by the build. `tags` undefined means every deadline. */
 export const FEEDS: ReadonlyArray<{ readonly file: string; readonly title: string; readonly tags?: ReadonlyArray<Tag> }> = [
-  { file: "freelancer.ics", title: "Self-employed: freelancer", tags: ["freelancer"] },
-  { file: "sole-trader.ics", title: "Self-employed: sole trader (ЕТ)", tags: ["trader"] },
-  { file: "vat.ics", title: "VAT-registered", tags: ["vat"] },
-  { file: "property.ics", title: "Property tax", tags: ["property"] },
-  { file: "calendar.ics", title: "All NRA deadlines" }
+  { file: "freelancer.ics", title: "Самоосигуряващи се: свободна професия", tags: ["freelancer"] },
+  { file: "sole-trader.ics", title: "Самоосигуряващи се: едноличен търговец (ЕТ)", tags: ["trader"] },
+  { file: "vat.ics", title: "Регистрирани по ДДС", tags: ["vat"] },
+  { file: "property.ics", title: "Данък върху недвижими имоти", tags: ["property"] },
+  { file: "calendar.ics", title: "Всички срокове на НАП" }
 ]

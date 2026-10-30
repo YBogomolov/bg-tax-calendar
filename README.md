@@ -1,19 +1,19 @@
 # BG Tax Calendar
 
-A static website that shows the Bulgarian tax and social-insurance deadlines for self-employed persons (самоосигуряващи се лица). The left side shows a year overview. The side panel shows the upcoming work. The site also publishes calendar feeds for Apple Calendar, Google Calendar and other calendar apps.
+A static website in Bulgarian that shows the Bulgarian tax and social-insurance deadlines for self-employed persons (самоосигуряващи се лица). The left side shows a year overview. The side panel shows the upcoming work. The site also publishes calendar feeds for Apple Calendar, Google Calendar and other calendar apps.
 
 ## Self-employed view
 
-The site opens in the self-employed view. This view shows only the obligations of a self-insured person for their own income. Select the profile at the top of the page:
+The site opens in the self-employed view ("Самоосигуряващи се"). This view shows only the obligations of a self-insured person for their own income. Select the profile at the top of the page:
 
 | Setting | Effect |
 | --- | --- |
-| Freelancer | Свободна професия, занаятчия and other persons under art. 29 of the Personal Income Tax Act. The annual tax return and the final contributions are due by 30 April. |
-| Sole trader (ЕТ) | The annual tax return and the final contributions are due by 30 June. |
-| VAT-registered | Adds the monthly VAT return and the VIES declaration. |
-| Property tax | Adds the property tax instalments and the waste-fee exemption. |
+| Свободна професия (freelancer) | Свободна професия, занаятчия and other persons under art. 29 of the Personal Income Tax Act. The annual tax return and the final contributions are due by 30 April. |
+| Едноличен търговец (ЕТ, sole trader) | The annual tax return and the final contributions are due by 30 June. |
+| Регистрация по ДДС (VAT-registered) | Adds the monthly VAT return and the VIES declaration. |
+| Данък върху недвижими имоти (property tax) | Adds the property tax instalments and the waste-fee exemption. |
 
-The view leaves out the obligations of a self-employed person as an employer or as a payer of income to other persons. The "All deadlines" view shows every deadline from the NRA documents.
+The view leaves out the obligations of a self-employed person as an employer or as a payer of income to other persons. The "Всички срокове" (all deadlines) view shows every deadline from the NRA documents.
 
 `src/audience.ts` contains the rules that select the obligations. The rules use the text of the NRA documents. At each build, `src/audience-check.ts` counts the core obligations, for example 12 monthly contributions. If a count is too low, the build shows a warning.
 
@@ -30,7 +30,7 @@ If a start day is a weekend or a public holiday, it moves back to the previous w
 
 The side panel shows two groups:
 
-- "Work on now": deadlines with a start day that has come. Each card shows "Start now" (safe window), "Tight: start today" (tight window) or "Due today".
+- "За работа сега" (work on now): deadlines with a start day that has come. Each card shows "Започнете сега" (safe window), "Спешно: започнете днес" (tight window) or "Срокът е днес" (due today).
 - Later deadlines, grouped by the start day.
 
 To change the buffers, edit `data/settings.json` and rebuild:
@@ -119,7 +119,7 @@ The server reads `dist/` from disk for each request. After a rebuild, you do not
 
 ## Subscribe in a calendar app
 
-Open "Calendar feeds" on the page. Click "Subscribe" for the feeds that match your profile. The page marks these feeds with a tick.
+Open "Абонамент за календар" (calendar feeds) on the page. Click "Абониране" (subscribe) for the feeds that match your profile. The page marks these feeds with a tick.
 
 | Feed | Contents |
 | --- | --- |

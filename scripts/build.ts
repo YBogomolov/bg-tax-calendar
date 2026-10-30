@@ -30,7 +30,8 @@ const program = Effect.gen(function*() {
         format: "esm",
         target: "es2022",
         metafile: true,
-        legalComments: "none"
+        legalComments: "none",
+        charset: "utf8"
       }),
     catch: (e) => new BundleError({ message: String(e) })
   })
