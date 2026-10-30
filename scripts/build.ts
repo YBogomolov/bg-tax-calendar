@@ -4,12 +4,12 @@ import { Effect, FileSystem, Path, Schema } from "effect"
 import { buildData } from "../src/build-data.ts"
 
 class BundleError extends Schema.TaggedError<BundleError>()("BundleError", {
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 const STATIC_FILES = ["index.html", "styles.css", "favicon.svg"]
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const root = path.resolve(import.meta.dirname, "..")
@@ -31,9 +31,9 @@ const program = Effect.gen(function*() {
         target: "es2022",
         metafile: true,
         legalComments: "none",
-        charset: "utf8"
+        charset: "utf8",
       }),
-    catch: (e) => new BundleError({ message: String(e) })
+    catch: (e) => new BundleError({ message: String(e) }),
   })
   const size = result.metafile.outputs[path.join("dist", "app.js")]?.bytes ?? 0
   yield* Effect.log(`Bundled app.js (${(size / 1024).toFixed(1)} KiB)`)

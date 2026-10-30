@@ -7,7 +7,7 @@ import { refetch } from "../src/refetch.ts"
  * Downloads the current NRA calendars into `data/sources`. In GitHub Actions,
  * writes `changed=true|false` to `$GITHUB_OUTPUT` and a report to the job summary.
  */
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const path = yield* Path.Path
   const root = path.resolve(import.meta.dirname, "..")
   const today = new Date().toISOString().slice(0, 10)
@@ -17,7 +17,7 @@ const program = Effect.gen(function*() {
     "## NRA calendars",
     "",
     ...changed.map((t) => `- **Updated:** ${t}`),
-    ...unchanged.map((t) => `- Unchanged: ${t}`)
+    ...unchanged.map((t) => `- Unchanged: ${t}`),
   ].join("\n")
   yield* Effect.log(changed.length > 0 ? `Updated: ${changed.join(", ")}` : "No changes")
 

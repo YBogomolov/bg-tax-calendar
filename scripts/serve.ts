@@ -5,7 +5,7 @@ import { HttpRouter, HttpStaticServer } from "effect/http"
 
 /** Serves `dist/` over HTTP. Configure with the PORT and HOST environment variables. */
 const ServerLive = Layer.unwrap(
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const port = yield* Config.Int("PORT").pipe(Config.withDefault(8080))
     const host = yield* Config.String("HOST").pipe(Config.withDefault("0.0.0.0"))
     const root = new URL("../dist", import.meta.url).pathname
@@ -15,7 +15,7 @@ const ServerLive = Layer.unwrap(
         root,
         index: "index.html",
         cacheControl: "public, max-age=300",
-        mimeTypes: { ics: "text/calendar; charset=utf-8" }
+        mimeTypes: { ics: "text/calendar; charset=utf-8" },
       })
     ).pipe(Layer.provide(NodeHttpServer.layer(createServer, { port, host })))
   })

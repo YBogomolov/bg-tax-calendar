@@ -12,7 +12,7 @@ export type Tag = typeof Tag.Type
 export const Item = Schema.Struct({
   text: Schema.String,
   /** Self-employed profiles that the item concerns. Empty when it concerns other taxpayers only. */
-  tags: Schema.Array(Tag)
+  tags: Schema.Array(Tag),
 })
 export type Item = typeof Item.Type
 
@@ -32,7 +32,7 @@ export const Deadline = Schema.Struct({
   /** Heading of the block in the source document. */
   group: Schema.String,
   items: Schema.Array(Item),
-  notes: Schema.Array(Schema.String)
+  notes: Schema.Array(Schema.String),
 })
 export type Deadline = typeof Deadline.Type
 
@@ -44,19 +44,19 @@ export const SourceDoc = Schema.Struct({
   retrieved: IsoDate,
   /** Day when the refetch last compared the document with the NRA website. */
   checked: IsoDate,
-  sha256: Schema.String
+  sha256: Schema.String,
 })
 export type SourceDoc = typeof SourceDoc.Type
 
 export const Buffers = Schema.Struct({
   safeDays: Schema.Number,
-  tightDays: Schema.Number
+  tightDays: Schema.Number,
 })
 export type Buffers = typeof Buffers.Type
 
 export const Feed = Schema.Struct({
   file: Schema.String,
-  title: Schema.String
+  title: Schema.String,
 })
 export type Feed = typeof Feed.Type
 
@@ -67,21 +67,21 @@ export const CalendarYear = Schema.Struct({
   sources: Schema.Array(SourceDoc),
   /** Non-working days in the year (weekends excluded), used to shade the overview. */
   holidays: Schema.Array(IsoDate),
-  deadlines: Schema.Array(Deadline)
+  deadlines: Schema.Array(Deadline),
 })
 export type CalendarYear = typeof CalendarYear.Type
 
 export const CalendarIndex = Schema.Struct({
   years: Schema.Array(Schema.Number),
-  feeds: Schema.Array(Feed)
+  feeds: Schema.Array(Feed),
 })
 export type CalendarIndex = typeof CalendarIndex.Type
 
 export class BuildWarning extends Schema.TaggedError<BuildWarning>()("BuildWarning", {
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export class ParseError extends Schema.TaggedError<ParseError>()("ParseError", {
   source: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}

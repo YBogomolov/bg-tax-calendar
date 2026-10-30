@@ -13,7 +13,7 @@ export const defaultProfile: Profile = { activity: "freelancer", vat: false, pro
 export const profileTags = (p: Profile): ReadonlyArray<Tag> => [
   p.activity,
   ...(p.vat ? ["vat" as const] : []),
-  ...(p.property ? ["property" as const] : [])
+  ...(p.property ? ["property" as const] : []),
 ]
 
 /** Keeps only the items with one of `tags`. Returns undefined when no item is left. */
@@ -47,10 +47,14 @@ export const mergeSocial = (list: ReadonlyArray<Deadline>): Array<Deadline> => {
 }
 
 /** Calendar feeds written by the build. `tags` undefined means every deadline. */
-export const FEEDS: ReadonlyArray<{ readonly file: string; readonly title: string; readonly tags?: ReadonlyArray<Tag> }> = [
+export const FEEDS: ReadonlyArray<{
+  readonly file: string
+  readonly title: string
+  readonly tags?: ReadonlyArray<Tag>
+}> = [
   { file: "freelancer.ics", title: "Самоосигуряващи се: свободна професия", tags: ["freelancer"] },
   { file: "sole-trader.ics", title: "Самоосигуряващи се: едноличен търговец (ЕТ)", tags: ["trader"] },
   { file: "vat.ics", title: "Регистрирани по ДДС", tags: ["vat"] },
   { file: "property.ics", title: "Данък върху недвижими имоти", tags: ["property"] },
-  { file: "calendar.ics", title: "Всички срокове на НАП" }
+  { file: "calendar.ics", title: "Всички срокове на НАП" },
 ]

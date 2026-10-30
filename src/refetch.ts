@@ -12,12 +12,12 @@ const USER_AGENT = "bg-tax-calendar (+https://github.com/YBogomolov/bg-tax-calen
 
 export class FetchError extends Schema.TaggedError<FetchError>()("FetchError", {
   url: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 const TITLES: Record<SourceKind, RegExp> = {
   tax: /^Данъчен календар (\d{4}) г\.?$/,
-  social: /^Осигурителен календар (\d{4}) г\.?$/
+  social: /^Осигурителен календар (\d{4}) г\.?$/,
 }
 
 export interface CalendarLink {
@@ -27,7 +27,12 @@ export interface CalendarLink {
   readonly page: string
 }
 
-const decodeHtml = (s: string) => s.replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim()
+const decodeHtml = (s: string) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 
 /** Finds the links to the yearly calendar pages on the index page. */
 export const findCalendarLinks = (html: string, base: string): ReadonlyArray<CalendarLink> => {
@@ -57,12 +62,12 @@ const get = (url: string) =>
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return { type: res.headers.get("content-type") ?? "", body: new Uint8Array(await res.arrayBuffer()) }
     },
-    catch: (e) => new FetchError({ url, message: String(e) })
+    catch: (e) => new FetchError({ url, message: String(e) }),
   }).pipe(Effect.retry({ schedule: Schedule.exponential("2 seconds"), times: 3 }))
 
 const getText = (url: string) => get(url).pipe(Effect.map((r) => new TextDecoder().decode(r.body)))
 
-const getDocx = Effect.fnUntraced(function*(url: string) {
+const getDocx = Effect.fnUntraced(function* (url: string) {
   const { type, body } = yield* get(url)
   // A DOCX file is a ZIP archive. Anything else is an error page or a bot challenge.
   if (body[0] !== 0x50 || body[1] !== 0x4b) {
@@ -76,7 +81,7 @@ const SourceEntry = Schema.Struct({
   page: Schema.String,
   file: Schema.String,
   retrieved: Schema.String,
-  checked: Schema.String
+  checked: Schema.String,
 })
 const SourcesFile = Schema.Record(Schema.String, Schema.Record(SourceKind, SourceEntry))
 const HolidaysFile = Schema.Record(
@@ -96,17 +101,24 @@ export interface RefetchResult {
  * `data/sources/<year>/` only if it is new or its content changed, and only after
  * the parser accepts it. The check date of every document is updated.
  */
-export const refetch = Effect.fn("refetch")(function*(root: string, today: string) {
+export const refetch = Effect.fn("refetch")(function* (root: string, today: string) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const sourcesPath = path.join(root, "data/sources/sources.json")
   const holidaysPath = path.join(root, "data/holidays.json")
-  const sources = { ...(yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SourcesFile))(yield* fs.readFileString(sourcesPath))) }
-  const holidays = { ...(yield* Schema.decodeUnknownEffect(Schema.fromJsonString(HolidaysFile))(yield* fs.readFileString(holidaysPath))) }
+  const sources = {
+    ...(yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SourcesFile))(yield* fs.readFileString(sourcesPath))),
+  }
+  const holidays = {
+    ...(yield* Schema.decodeUnknownEffect(Schema.fromJsonString(HolidaysFile))(yield* fs.readFileString(holidaysPath))),
+  }
 
   const links = findCalendarLinks(yield* getText(INDEX_URL), INDEX_URL)
   if (links.length === 0) {
-    return yield* new ParseError({ source: INDEX_URL, message: "No calendar links found. The NRA page layout changed." })
+    return yield* new ParseError({
+      source: INDEX_URL,
+      message: "No calendar links found. The NRA page layout changed.",
+    })
   }
   yield* Effect.log(`Found ${links.map((l) => l.title).join(", ")}`)
 
@@ -131,18 +143,22 @@ export const refetch = Effect.fn("refetch")(function*(root: string, today: strin
 
     // Reject a document that the parser cannot read, so the site keeps the last good data.
     const paragraphs = yield* readParagraphs(link.kind, bytes)
-    const parsed = yield* (link.kind === "tax" ? parseTax(link.year, paragraphs) : parseSocial(link.year, paragraphs))
+    const parsed = yield* link.kind === "tax" ? parseTax(link.year, paragraphs) : parseSocial(link.year, paragraphs)
     yield* Effect.log(`${link.title}: ${existing === undefined ? "new" : "changed"}, ${parsed.length} deadlines`)
 
     yield* fs.makeDirectory(path.dirname(target), { recursive: true })
     yield* fs.writeFile(target, bytes)
-    sources[yearKey] = { ...sources[yearKey], [link.kind]: { title: link.title, page: link.page, file, retrieved: today, checked: today } } as (typeof sources)[string]
+    sources[yearKey] = {
+      ...sources[yearKey],
+      [link.kind]: { title: link.title, page: link.page, file, retrieved: today, checked: today },
+    } as (typeof sources)[string]
     holidays[yearKey] ??= { extraDaysOff: [], workingDays: [] }
     changed.push(link.title)
   }
 
   // Always record the check date: the site shows it, and the commit keeps the scheduled workflow active.
-  const sorted = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)))
+  const sorted = (o: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)))
   yield* fs.writeFileString(sourcesPath, JSON.stringify(sorted(sources), null, 2) + "\n")
   if (changed.length > 0) yield* fs.writeFileString(holidaysPath, JSON.stringify(sorted(holidays), null, 2) + "\n")
   return { changed, unchanged } satisfies RefetchResult

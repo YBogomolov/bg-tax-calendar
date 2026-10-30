@@ -26,7 +26,7 @@ const MONTHS = [
   "септември",
   "октомври",
   "ноември",
-  "декември"
+  "декември",
 ] as const
 const MONTH_RE = MONTHS.join("|")
 
@@ -66,7 +66,7 @@ const taxCategory = (law: string): string => {
   return ordinance?.[1] ?? law
 }
 
-export const parseTax = Effect.fnUntraced(function*(year: number, paragraphs: ReadonlyArray<Paragraph>) {
+export const parseTax = Effect.fnUntraced(function* (year: number, paragraphs: ReadonlyArray<Paragraph>) {
   const out = new Collector()
   let date: string | undefined
   let current: RawDeadline | undefined
@@ -89,7 +89,10 @@ export const parseTax = Effect.fnUntraced(function*(year: number, paragraphs: Re
       continue
     }
     if (current === undefined) {
-      return yield* new ParseError({ source: "tax", message: `Text without a law heading on ${date}: ${text.slice(0, 80)}` })
+      return yield* new ParseError({
+        source: "tax",
+        message: `Text without a law heading on ${date}: ${text.slice(0, 80)}`,
+      })
     }
     if (/^Забележка/i.test(text)) current.notes.push(text)
     else current.items.push(stripMarker(text))
@@ -121,7 +124,7 @@ const socialCategory = (group: string): string => {
   return ordinance?.[1] ?? group.slice(0, 24)
 }
 
-export const parseSocial = Effect.fnUntraced(function*(year: number, paragraphs: ReadonlyArray<Paragraph>) {
+export const parseSocial = Effect.fnUntraced(function* (year: number, paragraphs: ReadonlyArray<Paragraph>) {
   const out = new Collector()
   let started = false
   let inNotes = false
@@ -152,7 +155,7 @@ export const parseSocial = Effect.fnUntraced(function*(year: number, paragraphs:
         date: iso(Number(y), monthIndex(m!), Number(d)),
         statedDue: stated(sd, sm, sy),
         category: socialCategory(PENSION_GROUP),
-        group: PENSION_GROUP
+        group: PENSION_GROUP,
       })
       deadline.items.push(body!.charAt(0).toUpperCase() + body!.slice(1))
       continue
@@ -175,7 +178,7 @@ export const parseSocial = Effect.fnUntraced(function*(year: number, paragraphs:
         date: iso(year, monthIndex(m!), Number(d)),
         statedDue: stated(sd, sm, sy),
         category: socialCategory(group),
-        group
+        group,
       })
       continue
     }
@@ -185,7 +188,10 @@ export const parseSocial = Effect.fnUntraced(function*(year: number, paragraphs:
       continue
     }
     if (current === undefined) {
-      return yield* new ParseError({ source: "social", message: `Text without a date in group "${group}": ${text.slice(0, 80)}` })
+      return yield* new ParseError({
+        source: "social",
+        message: `Text without a date in group "${group}": ${text.slice(0, 80)}`,
+      })
     }
     current.items.push(stripMarker(text).replace(/^за /, "За "))
   }

@@ -2,9 +2,25 @@ import { createHash } from "node:crypto"
 import { Config, Effect, FileSystem, Path, Schema } from "effect"
 import { audienceCheck } from "./audience-check.ts"
 import { tagItem } from "./audience.ts"
-import { Buffers, BuildWarning, CalendarIndex, CalendarYear, type Deadline, ParseError, type SourceDoc, SourceKind } from "./domain.ts"
+import {
+  Buffers,
+  BuildWarning,
+  CalendarIndex,
+  CalendarYear,
+  type Deadline,
+  ParseError,
+  type SourceDoc,
+  SourceKind,
+} from "./domain.ts"
 import { readParagraphs } from "./docx.ts"
-import { type HolidayOverrides, makeWorkingDayCheck, minusDays, nextWorkingDay, previousWorkingDay, publicHolidays } from "./holidays.ts"
+import {
+  type HolidayOverrides,
+  makeWorkingDayCheck,
+  minusDays,
+  nextWorkingDay,
+  previousWorkingDay,
+  publicHolidays,
+} from "./holidays.ts"
 import { toIcs } from "./ics.ts"
 import { parseSocial, parseTax, type RawDeadline } from "./parse.ts"
 import { FEEDS, mergeSocial, narrowAll } from "./profile.ts"
@@ -14,7 +30,7 @@ const SourceEntry = Schema.Struct({
   page: Schema.String,
   file: Schema.String,
   retrieved: Schema.String,
-  checked: Schema.String
+  checked: Schema.String,
 })
 const SourcesFile = Schema.Record(Schema.String, Schema.Record(SourceKind, SourceEntry))
 const HolidaysFile = Schema.Record(
@@ -23,16 +39,22 @@ const HolidaysFile = Schema.Record(
 )
 const SettingsFile = Schema.Struct({ buffers: Buffers })
 
-const readJson = Effect.fnUntraced(function*<S extends Schema.Top & { readonly DecodingServices: never }>(file: string, schema: S) {
+const readJson = Effect.fnUntraced(function* <S extends Schema.Top & { readonly DecodingServices: never }>(
+  file: string,
+  schema: S
+) {
   const fs = yield* FileSystem.FileSystem
   const text = yield* fs.readFileString(file)
   return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(schema))(text)
 })
 
 const slug = (s: string): string =>
-  s.toLowerCase().replace(/[^a-z0-9а-я]+/g, "-").replace(/^-|-$/g, "")
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9а-я]+/g, "-")
+    .replace(/^-|-$/g, "")
 
-const finalise = Effect.fnUntraced(function*(
+const finalise = Effect.fnUntraced(function* (
   raw: ReadonlyArray<RawDeadline>,
   isWorkingDay: (d: Date) => boolean,
   buffers: Buffers,
@@ -61,17 +83,19 @@ const finalise = Effect.fnUntraced(function*(
       category: r.category,
       group: r.group,
       items: r.items.map((text) => ({ text, tags: tagItem(r.source, r.category, text) })),
-      notes: r.notes
+      notes: r.notes,
     })
   }
-  return out.sort((a, b) => a.due.localeCompare(b.due) || a.source.localeCompare(b.source) || a.category.localeCompare(b.category))
+  return out.sort(
+    (a, b) => a.due.localeCompare(b.due) || a.source.localeCompare(b.source) || a.category.localeCompare(b.category)
+  )
 })
 
 /**
  * Reads every year in `data/sources`, parses the official NRA documents and
  * writes `data/<year>.json`, `data/index.json` and `calendar.ics` to `outDir`.
  */
-export const buildData = Effect.fn("buildData")(function*(root: string, outDir: string) {
+export const buildData = Effect.fn("buildData")(function* (root: string, outDir: string) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const sources = yield* readJson(path.join(root, "data/sources/sources.json"), SourcesFile)
@@ -83,7 +107,7 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
   const generatedAt = new Date().toISOString()
   // With STRICT=true (CI), a data warning stops the build, so the site keeps the last good data.
   const strict = yield* Config.Boolean("STRICT").pipe(Config.withDefault(false))
-  const warn = (message: string) => strict ? Effect.fail(new BuildWarning({ message })) : Effect.logWarning(message)
+  const warn = (message: string) => (strict ? Effect.fail(new BuildWarning({ message })) : Effect.logWarning(message))
 
   yield* fs.makeDirectory(path.join(outDir, "data"), { recursive: true })
   const years: Array<number> = []
@@ -99,7 +123,7 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
       const file = path.join(root, "data/sources", yearKey, entry.file)
       const bytes = yield* fs.readFile(file)
       const paragraphs = yield* readParagraphs(kind, bytes)
-      const parsed = yield* (kind === "tax" ? parseTax(year, paragraphs) : parseSocial(year, paragraphs))
+      const parsed = yield* kind === "tax" ? parseTax(year, paragraphs) : parseSocial(year, paragraphs)
       raw.push(...parsed)
       docs.push({
         kind,
@@ -107,7 +131,7 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
         page: entry.page,
         retrieved: entry.retrieved,
         checked: entry.checked,
-        sha256: createHash("sha256").update(bytes).digest("hex")
+        sha256: createHash("sha256").update(bytes).digest("hex"),
       })
       yield* Effect.log(`${year} ${kind}: ${parsed.length} deadlines from ${entry.file}`)
     }
@@ -115,7 +139,14 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
     const deadlines = yield* finalise(raw, isWorkingDay, buffers, warn)
     yield* audienceCheck(year, deadlines, warn)
     const holidays = [...publicHolidays(year, overrides[year])].filter((d) => d.startsWith(yearKey)).sort()
-    const calendar = yield* Schema.decodeUnknownEffect(CalendarYear)({ year, buffers, generatedAt, sources: docs, holidays, deadlines })
+    const calendar = yield* Schema.decodeUnknownEffect(CalendarYear)({
+      year,
+      buffers,
+      generatedAt,
+      sources: docs,
+      holidays,
+      deadlines,
+    })
     yield* fs.writeFileString(path.join(outDir, "data", `${year}.json`), JSON.stringify(calendar))
     years.push(year)
     all.push(...deadlines)
@@ -130,7 +161,7 @@ export const buildData = Effect.fn("buildData")(function*(root: string, outDir: 
       stamp: generatedAt,
       sourceUrl: "https://nra.bg/wps/portal/nra/calendar/calendar",
       startEvents: feed.tags !== undefined,
-      buffers
+      buffers,
     })
     yield* fs.writeFileString(path.join(outDir, feed.file), ics)
   }

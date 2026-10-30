@@ -4,7 +4,15 @@ import { Effect } from "effect"
 import { paragraphsFromXml, readParagraphs } from "../src/docx.ts"
 import { tagItem } from "../src/audience.ts"
 import type { Deadline } from "../src/domain.ts"
-import { makeWorkingDayCheck, minusDays, nextWorkingDay, orthodoxEaster, previousWorkingDay, publicHolidays, toIso } from "../src/holidays.ts"
+import {
+  makeWorkingDayCheck,
+  minusDays,
+  nextWorkingDay,
+  orthodoxEaster,
+  previousWorkingDay,
+  publicHolidays,
+  toIso,
+} from "../src/holidays.ts"
 import { toIcs } from "../src/ics.ts"
 import { parseSocial, parseTax } from "../src/parse.ts"
 import { findCalendarLinks, findDocxLink, INDEX_URL } from "../src/refetch.ts"
@@ -50,14 +58,14 @@ describe("docx", () => {
     </w:body>`
     expect(paragraphsFromXml(xml)).toEqual([
       { text: "До 14-ти януари:", bold: true },
-      { text: "Подаване & внасяне", bold: false }
+      { text: "Подаване & внасяне", bold: false },
     ])
   })
 })
 
 describe("parsers on the official 2026 documents", () => {
   it.effect("parses the tax calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseTax(2026, yield* readParagraphs("tax", source("tax.docx")))
       expect(result.length).toBeGreaterThan(100)
       const months = new Set(result.map((d) => d.date.slice(5, 7)))
@@ -70,10 +78,11 @@ describe("parsers on the official 2026 documents", () => {
         expect(d.items.length).toBeGreaterThan(0)
         for (const i of d.items) expect(i).not.toMatch(/^(\d{1,2}[.)]?\s|[•·])/)
       }
-    }))
+    })
+  )
 
   it.effect("parses the social-insurance calendar with stated expiry dates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseSocial(2026, yield* readParagraphs("social", source("social.docx")))
       expect(result.length).toBeGreaterThan(60)
       const jan = result.find((d) => d.date === "2026-01-25" && d.category === "ДОО и ДЗПО")
@@ -83,51 +92,110 @@ describe("parsers on the official 2026 documents", () => {
       expect(dec?.statedDue).toBe("2026-12-29")
       const pension = result.filter((d) => d.category === "Пенсионни фондове")
       expect(pension).toHaveLength(12)
-    }))
+    })
+  )
 
   it.effect("agrees with every expiry date stated by the NRA", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseSocial(2026, yield* readParagraphs("social", source("social.docx")))
       const isWorkingDay = makeWorkingDayCheck()
       const stated = result.filter((d) => d.statedDue !== undefined)
       expect(stated.length).toBeGreaterThan(10)
       for (const d of stated) expect(nextWorkingDay(d.date, isWorkingDay)).toBe(d.statedDue)
-    }))
+    })
+  )
 })
 
 describe("self-employed profiles", () => {
   it("separates freelancers from sole traders", () => {
-    expect(tagItem("tax", "ЗДДФЛ", "Подаване на годишна данъчна декларация по чл. 50 от ЗДДФЛ за доходи, подлежащи на облагане с данък върху общата годишна данъчна основа, придобити от физическите лица през предходната година"))
-      .toEqual(["freelancer"])
-    expect(tagItem("tax", "ЗДДФЛ", "Подаване на годишна данъчна декларация по чл. 50 от ЗДДФЛ за доходите, подлежащи на облагане с данък върху годишната данъчна основа по чл. 28 от ЗДДФЛ и внасяне на дължимия по декларацията данък от лица, които извършват стопанска дейност като търговци по смисъла на Търговския закон"))
-      .toEqual(["trader"])
-    expect(tagItem("social", "Н-13", "Подаване на Декларация образец №6, за дължимите осигурителни вноски за предходната календарна година, от самоосигуряващите се лица с изключение на лицата, извършващи стопанска дейност като търговци по смисъла на Търговския закон"))
-      .toEqual(["freelancer"])
-    expect(tagItem("social", "ДОО и ДЗПО", "За самоосигуряващите се лица на авансово дължимите месечни осигурителни вноски за месец януари 2026 г."))
-      .toEqual(["freelancer", "trader"])
+    expect(
+      tagItem(
+        "tax",
+        "ЗДДФЛ",
+        "Подаване на годишна данъчна декларация по чл. 50 от ЗДДФЛ за доходи, подлежащи на облагане с данък върху общата годишна данъчна основа, придобити от физическите лица през предходната година"
+      )
+    ).toEqual(["freelancer"])
+    expect(
+      tagItem(
+        "tax",
+        "ЗДДФЛ",
+        "Подаване на годишна данъчна декларация по чл. 50 от ЗДДФЛ за доходите, подлежащи на облагане с данък върху годишната данъчна основа по чл. 28 от ЗДДФЛ и внасяне на дължимия по декларацията данък от лица, които извършват стопанска дейност като търговци по смисъла на Търговския закон"
+      )
+    ).toEqual(["trader"])
+    expect(
+      tagItem(
+        "social",
+        "Н-13",
+        "Подаване на Декларация образец №6, за дължимите осигурителни вноски за предходната календарна година, от самоосигуряващите се лица с изключение на лицата, извършващи стопанска дейност като търговци по смисъла на Търговския закон"
+      )
+    ).toEqual(["freelancer"])
+    expect(
+      tagItem(
+        "social",
+        "ДОО и ДЗПО",
+        "За самоосигуряващите се лица на авансово дължимите месечни осигурителни вноски за месец януари 2026 г."
+      )
+    ).toEqual(["freelancer", "trader"])
   })
 
   it("leaves out employer, payer and spouse obligations", () => {
-    expect(tagItem("tax", "ЗДДФЛ", "Внасяне от работодателя на авансовия данък, удържан през месец март за доходи от трудови правоотношения.")).toEqual([])
-    expect(tagItem("tax", "ЗДДФЛ", "Деклариране и внасяне на авансовия данък по чл. 43, ал. 4, чл. 44, ал. 4 и чл. 44а от ЗДДФЛ, удържан от предприятията и самоосигуряващите се лица за доходи")).toEqual([])
-    expect(tagItem("social", "ДОО и ДЗПО", "За съпрузите на лицата, регистрирани като упражняващи свободна професия и/или занаятчийска дейност")).toEqual([])
+    expect(
+      tagItem(
+        "tax",
+        "ЗДДФЛ",
+        "Внасяне от работодателя на авансовия данък, удържан през месец март за доходи от трудови правоотношения."
+      )
+    ).toEqual([])
+    expect(
+      tagItem(
+        "tax",
+        "ЗДДФЛ",
+        "Деклариране и внасяне на авансовия данък по чл. 43, ал. 4, чл. 44, ал. 4 и чл. 44а от ЗДДФЛ, удържан от предприятията и самоосигуряващите се лица за доходи"
+      )
+    ).toEqual([])
+    expect(
+      tagItem(
+        "social",
+        "ДОО и ДЗПО",
+        "За съпрузите на лицата, регистрирани като упражняващи свободна професия и/или занаятчийска дейност"
+      )
+    ).toEqual([])
   })
 
   it("tags VAT and property obligations", () => {
-    expect(tagItem("tax", "ЗДДС", "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС")).toEqual(["vat"])
-    expect(tagItem("tax", "ЗМДТ", "Плащане на втора вноска на данъка върху недвижимите имоти за текущата година.")).toEqual(["property"])
+    expect(
+      tagItem(
+        "tax",
+        "ЗДДС",
+        "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС"
+      )
+    ).toEqual(["vat"])
+    expect(
+      tagItem("tax", "ЗМДТ", "Плащане на втора вноска на данъка върху недвижимите имоти за текущата година.")
+    ).toEqual(["property"])
   })
 
   it.effect("finds every core obligation of a freelancer in 2026", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const raw = yield* parseSocial(2026, yield* readParagraphs("social", source("social.docx")))
       const tax = yield* parseTax(2026, yield* readParagraphs("tax", source("tax.docx")))
-      const items = [...raw, ...tax].flatMap((d) => d.items.filter((t) => tagItem(d.source, d.category, t).includes("freelancer")).map((t) => ({ date: d.date, t })))
+      const items = [...raw, ...tax].flatMap((d) =>
+        d.items.filter((t) => tagItem(d.source, d.category, t).includes("freelancer")).map((t) => ({ date: d.date, t }))
+      )
       expect(items.filter((i) => /авансово дължимите месечни осигурителни вноски/.test(i.t))).toHaveLength(12)
-      expect(items.filter((i) => /декларация образец №1 от самоосигуряващите се лица с данните/.test(i.t))).toHaveLength(12)
-      expect(items.filter((i) => /доходи от стопанска дейност по чл\. 29/.test(i.t)).map((i) => i.date)).toEqual(["2026-04-30", "2026-07-31", "2026-10-31"])
-      expect(items.some((i) => i.date === "2026-04-30" && /^Подаване на годишна данъчна декларация/.test(i.t))).toBe(true)
-    }))
+      expect(
+        items.filter((i) => /декларация образец №1 от самоосигуряващите се лица с данните/.test(i.t))
+      ).toHaveLength(12)
+      expect(items.filter((i) => /доходи от стопанска дейност по чл\. 29/.test(i.t)).map((i) => i.date)).toEqual([
+        "2026-04-30",
+        "2026-07-31",
+        "2026-10-31",
+      ])
+      expect(items.some((i) => i.date === "2026-04-30" && /^Подаване на годишна данъчна декларация/.test(i.t))).toBe(
+        true
+      )
+    })
+  )
 })
 
 describe("buffers", () => {
@@ -156,10 +224,20 @@ describe("ics", () => {
     startTight: "2026-01-07",
     category: "ЗДДС",
     group: "ЗДДС",
-    items: [{ text: "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС", tags: ["vat"] }],
-    notes: []
+    items: [
+      {
+        text: "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС",
+        tags: ["vat"],
+      },
+    ],
+    notes: [],
   }
-  const options = { name: "Test", stamp: "2026-10-30T10:00:00.000Z", sourceUrl: "https://nra.bg/", buffers: { safeDays: 14, tightDays: 7 } }
+  const options = {
+    name: "Test",
+    stamp: "2026-10-30T10:00:00.000Z",
+    sourceUrl: "https://nra.bg/",
+    buffers: { safeDays: 14, tightDays: 7 },
+  }
 
   it("writes folded all-day events", () => {
     const ics = toIcs([deadline], { ...options, startEvents: false })
@@ -189,14 +267,14 @@ describe("refetch", () => {
         kind: "tax",
         year: 2026,
         title: "Данъчен календар 2026 г.",
-        page: "https://nra.bg/wps/portal/nra/calendar/5efeb8b2-e09c-4bb2-9e5f-0d330771bde6"
+        page: "https://nra.bg/wps/portal/nra/calendar/5efeb8b2-e09c-4bb2-9e5f-0d330771bde6",
       },
       {
         kind: "social",
         year: 2026,
         title: "Осигурителен календар 2026 г.",
-        page: "https://nra.bg/wps/portal/nra/calendar/c6793df8-22a5-4ad8-8dc9-b4c97e95562d"
-      }
+        page: "https://nra.bg/wps/portal/nra/calendar/c6793df8-22a5-4ad8-8dc9-b4c97e95562d",
+      },
     ])
   })
 

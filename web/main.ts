@@ -23,7 +23,7 @@ const fetchJson = <A>(url: string) =>
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as A
     },
-    catch: (e) => new LoadError({ url, message: String(e) })
+    catch: (e) => new LoadError({ url, message: String(e) }),
   })
 
 const SOURCE_NAMES: Record<SourceKind, string> = { tax: "Данъчен календар", social: "Осигурителен календар" }
@@ -40,8 +40,12 @@ const diffDays = (a: string, b: string) => Math.round((parseIso(b).getTime() - p
 
 /** Today in Sofia, whatever the time zone of the device. */
 const todayInSofia = (): string => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia", year: "numeric", month: "2-digit", day: "2-digit" })
-    .formatToParts(new Date())
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Sofia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? ""
   return `${get("year")}-${get("month")}-${get("day")}`
 }
@@ -64,7 +68,7 @@ const relative = (today: string, iso: string): string => {
   return n > 0 ? `след ${plural(n, "ден", "дни")}` : `преди ${plural(-n, "ден", "дни")}`
 }
 
-const weeks = (days: number) => days % 7 === 0 ? plural(days / 7, "седмица", "седмици") : plural(days, "ден", "дни")
+const weeks = (days: number) => (days % 7 === 0 ? plural(days / 7, "седмица", "седмици") : plural(days, "ден", "дни"))
 
 // ---------------------------------------------------------------------------
 // State
@@ -100,10 +104,12 @@ const loadPrefs = (): Prefs => {
       profile: {
         activity: p["activity"] === "trader" ? "trader" : "freelancer",
         vat: p["vat"] === true,
-        property: p["property"] === true
+        property: p["property"] === true,
       },
       source: raw["source"] === "tax" || raw["source"] === "social" ? raw["source"] : "all",
-      hidden: new Set(Array.isArray(raw["hidden"]) ? raw["hidden"].filter((x): x is string => typeof x === "string") : [])
+      hidden: new Set(
+        Array.isArray(raw["hidden"]) ? raw["hidden"].filter((x): x is string => typeof x === "string") : []
+      ),
     }
   } catch {
     return fallback
@@ -111,7 +117,10 @@ const loadPrefs = (): Prefs => {
 }
 const savePrefs = (s: State) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ view: s.view, profile: s.profile, source: s.source, hidden: [...s.hidden] }))
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ view: s.view, profile: s.profile, source: s.source, hidden: [...s.hidden] })
+    )
   } catch {
     // Storage can be unavailable (private mode); preferences then reset on reload.
   }
@@ -135,7 +144,7 @@ const STATUS_LABEL: Record<Status, string> = {
   safe: "Започнете сега",
   tight: "Спешно: започнете днес",
   due: "Срокът е днес",
-  past: "Изтекъл"
+  past: "Изтекъл",
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +190,9 @@ const renderFilters = (s: State, rerender: () => void) => {
     rerender()
   }
   segmented("view", s.view, (v) => update(() => (s.view = v as View)))
-  segmented("activity", s.profile.activity, (v) => update(() => (s.profile = { ...s.profile, activity: v as Activity })))
+  segmented("activity", s.profile.activity, (v) =>
+    update(() => (s.profile = { ...s.profile, activity: v as Activity }))
+  )
   segmented("source", s.source, (v) => update(() => (s.source = v as SourceFilter)))
   $("self-filters").hidden = s.view !== "self"
   $("all-filters").hidden = s.view !== "all"
@@ -206,7 +217,12 @@ const renderFilters = (s: State, rerender: () => void) => {
     .map(([cat, { source, n }]) => {
       const chip = h(
         "button",
-        { type: "button", class: "chip", "aria-pressed": String(!s.hidden.has(cat)), title: CATEGORY_TITLES[cat] ?? CATEGORY_NAMES[cat] ?? cat },
+        {
+          type: "button",
+          class: "chip",
+          "aria-pressed": String(!s.hidden.has(cat)),
+          title: CATEGORY_TITLES[cat] ?? CATEGORY_NAMES[cat] ?? cat,
+        },
         h("i", { class: `dot ${source}` }),
         `${cat} `,
         h("span", { class: "muted" }, String(n))
@@ -237,15 +253,19 @@ const renderHeader = (s: State) => {
   const recommended = new Set(
     s.view === "self"
       ? [
-        s.profile.activity === "freelancer" ? "freelancer.ics" : "sole-trader.ics",
-        ...(s.profile.vat ? ["vat.ics"] : []),
-        ...(s.profile.property ? ["property.ics"] : [])
-      ]
+          s.profile.activity === "freelancer" ? "freelancer.ics" : "sole-trader.ics",
+          ...(s.profile.vat ? ["vat.ics"] : []),
+          ...(s.profile.property ? ["property.ics"] : []),
+        ]
       : ["calendar.ics"]
   )
   const base = new URL(".", location.href)
   $("feeds").replaceChildren(
-    h("p", { class: "muted" }, "Абонирайте се в Apple Calendar или Google Calendar. Календарите за самоосигуряващи се съдържат и дните за начало."),
+    h(
+      "p",
+      { class: "muted" },
+      "Абонирайте се в Apple Calendar или Google Calendar. Календарите за самоосигуряващи се съдържат и дните за начало."
+    ),
     ...s.feeds.map((f) => {
       const url = new URL(f.file, base)
       return h(
@@ -266,9 +286,9 @@ const renderLegend = (s: State) => {
     h("span", {}, h("i", { class: "dot social" }), "Осигурителен срок"),
     ...(s.view === "self"
       ? [
-        h("span", {}, h("i", { class: "mark safe" }), `Начало (${weeks(safeDays)} преди срока)`),
-        h("span", {}, h("i", { class: "mark tight" }), `Най-късно начало (${weeks(tightDays)} преди срока)`)
-      ]
+          h("span", {}, h("i", { class: "mark safe" }), `Начало (${weeks(safeDays)} преди срока)`),
+          h("span", {}, h("i", { class: "mark tight" }), `Най-късно начало (${weeks(tightDays)} преди срока)`),
+        ]
       : []),
     h("span", {}, h("i", { class: "sw holiday" }), "Официален празник"),
     h("span", {}, h("i", { class: "sw today" }), "Днес")
@@ -337,12 +357,20 @@ const renderMonths = (s: State, rerender: () => void) => {
         holidays.has(iso) && "официален празник",
         info.due.length > 0 && plural(info.due.length, "срок", "срока"),
         info.safe.length > 0 && `начало: ${info.safe.length}`,
-        info.tight.length > 0 && `най-късно начало: ${info.tight.length}`
-      ].filter(Boolean).join(", ")
+        info.tight.length > 0 && `най-късно начало: ${info.tight.length}`,
+      ]
+        .filter(Boolean)
+        .join(", ")
       const sources = new Set(info.due.map((d) => d.source))
       const cell = h(
         "button",
-        { type: "button", class: classes.join(" "), "aria-label": label, title: label, tabindex: has ? undefined : "-1" },
+        {
+          type: "button",
+          class: classes.join(" "),
+          "aria-label": label,
+          title: label,
+          tabindex: has ? undefined : "-1",
+        },
         String(day),
         h(
           "span",
@@ -366,7 +394,12 @@ const renderMonths = (s: State, rerender: () => void) => {
     return h(
       "article",
       { class: current ? "month current" : "month" },
-      h("h3", {}, capitalise(fmtMonth.format(parseIso(first))), h("small", {}, count > 0 ? plural(count, "срок", "срока") : "")),
+      h(
+        "h3",
+        {},
+        capitalise(fmtMonth.format(parseIso(first))),
+        h("small", {}, count > 0 ? plural(count, "срок", "срока") : "")
+      ),
       h("div", { class: "grid" }, cells)
     )
   })
@@ -396,8 +429,18 @@ const card = (s: State, d: Deadline) => {
       h(
         "p",
         { class: "timeline" },
-        h("span", { title: `${weeks(safeDays)} преди срока` }, h("i", { class: "mark safe" }), `Начало ${fmtShort.format(parseIso(d.startSafe))}`),
-        h("span", { title: `${weeks(tightDays)} преди срока` }, h("i", { class: "mark tight" }), `Най-късно ${fmtShort.format(parseIso(d.startTight))}`),
+        h(
+          "span",
+          { title: `${weeks(safeDays)} преди срока` },
+          h("i", { class: "mark safe" }),
+          `Начало ${fmtShort.format(parseIso(d.startSafe))}`
+        ),
+        h(
+          "span",
+          { title: `${weeks(tightDays)} преди срока` },
+          h("i", { class: "mark tight" }),
+          `Най-късно ${fmtShort.format(parseIso(d.startTight))}`
+        ),
         h("span", {}, `Срок ${fmtShort.format(parseIso(d.due))}`)
       )
     ),
@@ -406,12 +449,21 @@ const card = (s: State, d: Deadline) => {
       "ul",
       {},
       d.items.map((i, n) =>
-        h("li", {}, labels[n] !== undefined && h("strong", {}, labels[n]), h("span", { class: labels[n] !== undefined ? "bg-text" : "" }, i.text))
+        h(
+          "li",
+          {},
+          labels[n] !== undefined && h("strong", {}, labels[n]),
+          h("span", { class: labels[n] !== undefined ? "bg-text" : "" }, i.text)
+        )
       )
     ),
     d.notes.map((n) => h("p", { class: "note" }, n)),
     d.date !== d.due &&
-      h("p", { class: "note moved" }, `Датата по календара е ${fmtShort.format(parseIso(d.date))} — неприсъствен ден, затова срокът изтича в първия следващ работен ден.`)
+      h(
+        "p",
+        { class: "note moved" },
+        `Датата по календара е ${fmtShort.format(parseIso(d.date))} — неприсъствен ден, затова срокът изтича в първия следващ работен ден.`
+      )
   )
 }
 
@@ -450,9 +502,30 @@ const renderPanel = (s: State, rerender: () => void) => {
     }
     const info = dayIndex(s, list).get(day) ?? { due: [], safe: [], tight: [] }
     const nodes: Array<Node> = [h("p", { class: "rel" }, relative(s.today, day))]
-    if (info.due.length > 0) nodes.push(section("Срокове на този ден", undefined, info.due.map((d) => card(s, d))))
-    if (info.safe.length > 0) nodes.push(section(`Начало (${weeks(safeDays)} преди срока)`, undefined, info.safe.map((d) => card(s, d))))
-    if (info.tight.length > 0) nodes.push(section(`Най-късно начало (${weeks(tightDays)} преди срока)`, undefined, info.tight.map((d) => card(s, d))))
+    if (info.due.length > 0)
+      nodes.push(
+        section(
+          "Срокове на този ден",
+          undefined,
+          info.due.map((d) => card(s, d))
+        )
+      )
+    if (info.safe.length > 0)
+      nodes.push(
+        section(
+          `Начало (${weeks(safeDays)} преди срока)`,
+          undefined,
+          info.safe.map((d) => card(s, d))
+        )
+      )
+    if (info.tight.length > 0)
+      nodes.push(
+        section(
+          `Най-късно начало (${weeks(tightDays)} преди срока)`,
+          undefined,
+          info.tight.map((d) => card(s, d))
+        )
+      )
     if (nodes.length === 1) nodes.push(h("p", { class: "empty" }, "Няма нищо за този ден."))
     body.replaceChildren(...nodes)
     return
@@ -463,15 +536,33 @@ const renderPanel = (s: State, rerender: () => void) => {
   const nodes: Array<Node> = []
 
   // Deadlines whose safe start day has come: work on them now, most urgent first.
-  const active = list.filter((d) => d.startSafe <= s.today && d.due >= s.today).sort((a, b) => a.due.localeCompare(b.due))
-  if (active.length > 0) nodes.push(section("За работа сега", `${active.length} активни`, active.map((d) => card(s, d))))
+  const active = list
+    .filter((d) => d.startSafe <= s.today && d.due >= s.today)
+    .sort((a, b) => a.due.localeCompare(b.due))
+  if (active.length > 0)
+    nodes.push(
+      section(
+        "За работа сега",
+        `${active.length} активни`,
+        active.map((d) => card(s, d))
+      )
+    )
 
   // Later deadlines, grouped by the day to start.
-  const later = groupBy(list.filter((d) => d.startSafe > s.today), (d) => d.startSafe)
+  const later = groupBy(
+    list.filter((d) => d.startSafe > s.today),
+    (d) => d.startSafe
+  )
   const limit = addDays(s.today, s.horizon)
   const shown = later.filter(([iso], i) => iso <= limit || i < 4)
   for (const [iso, items] of shown) {
-    nodes.push(section(`Начало ${fmtLong.format(parseIso(iso))}`, relative(s.today, iso), items.map((d) => card(s, d))))
+    nodes.push(
+      section(
+        `Начало ${fmtLong.format(parseIso(iso))}`,
+        relative(s.today, iso),
+        items.map((d) => card(s, d))
+      )
+    )
   }
   if (shown.length < later.length) {
     const more = h("button", { type: "button", class: "btn more" }, "Покажи още")
@@ -507,7 +598,7 @@ const renderFoot = (s: State) => {
       ...s.data.sources.flatMap((src, i) => [
         i > 0 ? ", " : "",
         h("a", { href: src.page, rel: "noopener", target: "_blank" }, src.title),
-        ` (изтеглен на ${fmtDate.format(parseIso(src.retrieved))}, проверен на ${fmtDate.format(parseIso(src.checked))})`
+        ` (изтеглен на ${fmtDate.format(parseIso(src.retrieved))}, проверен на ${fmtDate.format(parseIso(src.checked))})`,
       ]),
       `. Генериран на ${generated}.`
     ),
@@ -536,7 +627,7 @@ const pickYear = (years: ReadonlyArray<number>, today: string): number | undefin
   return past.length > 0 ? Math.max(...past) : years[0]
 }
 
-const main = Effect.gen(function*() {
+const main = Effect.gen(function* () {
   const today = todayInSofia()
   const index = yield* fetchJson<CalendarIndex>("data/index.json")
   const year = pickYear(index.years, today)
@@ -549,7 +640,7 @@ const main = Effect.gen(function*() {
     data,
     today,
     selected: null,
-    horizon: 30
+    horizon: 30,
   }
 
   const rerender = () => {
@@ -564,7 +655,9 @@ const main = Effect.gen(function*() {
   const select = $<HTMLSelectElement>("year-select")
   if (index.years.length > 1) {
     select.hidden = false
-    select.replaceChildren(...index.years.map((y) => h("option", { value: String(y), selected: y === year }, String(y))))
+    select.replaceChildren(
+      ...index.years.map((y) => h("option", { value: String(y), selected: y === year }, String(y)))
+    )
     select.onchange = () => {
       Effect.runFork(
         fetchJson<CalendarYear>(`data/${select.value}.json`).pipe(

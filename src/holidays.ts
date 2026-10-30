@@ -44,7 +44,7 @@ const FIXED: ReadonlyArray<readonly [number, number]> = [
   [9, 22], // Independence Day
   [12, 24], // Christmas Eve
   [12, 25], // Christmas
-  [12, 26] // Christmas
+  [12, 26], // Christmas
 ]
 
 /**

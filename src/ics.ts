@@ -1,6 +1,7 @@
 import type { Buffers, Deadline } from "./domain.ts"
 
-const escape = (s: string): string => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n")
+const escape = (s: string): string =>
+  s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n")
 
 /** Folds content lines to 75 octets, as RFC 5545 requires. */
 const fold = (line: string): string => {
@@ -44,7 +45,10 @@ export interface IcsOptions {
   readonly buffers: Buffers
 }
 
-const allDay = (lines: Array<string>, e: { uid: string; stamp: string; date: string; summary: string; description: string; categories: string; url: string }) => {
+const allDay = (
+  lines: Array<string>,
+  e: { uid: string; stamp: string; date: string; summary: string; description: string; categories: string; url: string }
+) => {
   lines.push(
     "BEGIN:VEVENT",
     `UID:${e.uid}@bg-tax-calendar`,
@@ -69,16 +73,30 @@ export const toIcs = (deadlines: ReadonlyArray<Deadline>, options: IcsOptions): 
     "PRODID:-//bg-tax-calendar//NRA//BG",
     "CALSCALE:GREGORIAN",
     `X-WR-CALNAME:${escape(options.name)}`,
-    "X-WR-TIMEZONE:Europe/Sofia"
+    "X-WR-TIMEZONE:Europe/Sofia",
   ]
   for (const d of deadlines) {
     const moved = d.due !== d.date ? `Срок по календара: ${d.date}. Изтича на ${d.due} (неприсъствен ден).\n` : ""
     const start = `Започнете до ${d.startSafe} (${options.buffers.safeDays} дни преди срока), най-късно ${d.startTight} (${options.buffers.tightDays} дни).\n`
-    const body = moved + start + "\n" + d.group + "\n\n" + d.items.map((i) => `• ${i.text}`).join("\n") +
+    const body =
+      moved +
+      start +
+      "\n" +
+      d.group +
+      "\n\n" +
+      d.items.map((i) => `• ${i.text}`).join("\n") +
       (d.notes.length > 0 ? "\n\n" + d.notes.join("\n") : "")
     const title = truncate(`${d.category}: ${d.items[0]?.text ?? d.group}`, 90)
     const categories = `${escape(d.source === "tax" ? "Данъци" : "Осигуровки")},${escape(d.category)}`
-    allDay(lines, { uid: d.id, stamp, date: d.due, summary: `Срок · ${title}`, description: body, categories, url: options.sourceUrl })
+    allDay(lines, {
+      uid: d.id,
+      stamp,
+      date: d.due,
+      summary: `Срок · ${title}`,
+      description: body,
+      categories,
+      url: options.sourceUrl,
+    })
     if (options.startEvents) {
       allDay(lines, {
         uid: `${d.id}-safe`,
@@ -87,7 +105,7 @@ export const toIcs = (deadlines: ReadonlyArray<Deadline>, options: IcsOptions): 
         summary: `Начало (${options.buffers.safeDays} дни) · ${title}`,
         description: `Срок: ${d.due}.\n${body}`,
         categories,
-        url: options.sourceUrl
+        url: options.sourceUrl,
       })
       allDay(lines, {
         uid: `${d.id}-tight`,
@@ -96,7 +114,7 @@ export const toIcs = (deadlines: ReadonlyArray<Deadline>, options: IcsOptions): 
         summary: `Последен момент (${options.buffers.tightDays} дни) · ${title}`,
         description: `Срок: ${d.due}.\n${body}`,
         categories,
-        url: options.sourceUrl
+        url: options.sourceUrl,
       })
     }
   }

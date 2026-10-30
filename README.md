@@ -6,12 +6,12 @@ A static website in Bulgarian that shows the Bulgarian tax and social-insurance 
 
 The site opens in the self-employed view ("Самоосигуряващи се"). This view shows only the obligations of a self-insured person for their own income. Select the profile at the top of the page:
 
-| Setting | Effect |
-| --- | --- |
-| Свободна професия (freelancer) | Свободна професия, занаятчия and other persons under art. 29 of the Personal Income Tax Act. The annual tax return and the final contributions are due by 30 April. |
-| Едноличен търговец (ЕТ, sole trader) | The annual tax return and the final contributions are due by 30 June. |
-| Регистрация по ДДС (VAT-registered) | Adds the monthly VAT return and the VIES declaration. |
-| Данък върху недвижими имоти (property tax) | Adds the property tax instalments and the waste-fee exemption. |
+| Setting                                    | Effect                                                                                                                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Свободна професия (freelancer)             | Свободна професия, занаятчия and other persons under art. 29 of the Personal Income Tax Act. The annual tax return and the final contributions are due by 30 April. |
+| Едноличен търговец (ЕТ, sole trader)       | The annual tax return and the final contributions are due by 30 June.                                                                                               |
+| Регистрация по ДДС (VAT-registered)        | Adds the monthly VAT return and the VIES declaration.                                                                                                               |
+| Данък върху недвижими имоти (property tax) | Adds the property tax instalments and the waste-fee exemption.                                                                                                      |
 
 The view leaves out the obligations of a self-employed person as an employer or as a payer of income to other persons. The "Всички срокове" (all deadlines) view shows every deadline from the NRA documents.
 
@@ -21,10 +21,10 @@ The view leaves out the obligations of a self-employed person as an employer or 
 
 Each date in the NRA calendars is a deadline. The site also shows when to start the work:
 
-| Marker | Meaning | Default |
-| --- | --- | --- |
-| Green triangle | Start: the safe buffer | 14 days before the deadline |
-| Amber triangle | Latest start: the tight buffer | 7 days before the deadline |
+| Marker         | Meaning                        | Default                     |
+| -------------- | ------------------------------ | --------------------------- |
+| Green triangle | Start: the safe buffer         | 14 days before the deadline |
+| Amber triangle | Latest start: the tight buffer | 7 days before the deadline  |
 
 If a start day is a weekend or a public holiday, it moves back to the previous working day.
 
@@ -50,10 +50,10 @@ The site uses TypeScript and [Effect](https://effect.website). The browser bundl
 
 The National Revenue Agency (НАП, NRA) publishes two calendars every year as `.docx` files:
 
-| Calendar | NRA page |
-| --- | --- |
-| Tax calendar (Данъчен календар) | <https://nra.bg/wps/portal/nra/calendar/calendar> → "Данъчен календар 2026 г." |
-| Social-insurance calendar (Осигурителен календар) | Same page → "Осигурителен календар 2026 г." |
+| Calendar                                          | NRA page                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Tax calendar (Данъчен календар)                   | <https://nra.bg/wps/portal/nra/calendar/calendar> → "Данъчен календар 2026 г." |
+| Social-insurance calendar (Осигурителен календар) | Same page → "Осигурителен календар 2026 г."                                    |
 
 The project keeps the original files in `data/sources/<year>/`. The build parses these files directly. Nobody types deadlines by hand. A monthly workflow downloads the files again (see [Monthly refetch](#monthly-refetch)).
 
@@ -121,13 +121,13 @@ The server reads `dist/` from disk for each request. After a rebuild, you do not
 
 Open "Абонамент за календар" (calendar feeds) on the page. Click "Абониране" (subscribe) for the feeds that match your profile. The page marks these feeds with a tick.
 
-| Feed | Contents |
-| --- | --- |
-| `freelancer.ics` | Freelancer obligations, with start events |
+| Feed              | Contents                                   |
+| ----------------- | ------------------------------------------ |
+| `freelancer.ics`  | Freelancer obligations, with start events  |
 | `sole-trader.ics` | Sole-trader obligations, with start events |
-| `vat.ics` | VAT obligations, with start events |
-| `property.ics` | Property tax, with start events |
-| `calendar.ics` | All NRA deadlines, without start events |
+| `vat.ics`         | VAT obligations, with start events         |
+| `property.ics`    | Property tax, with start events            |
+| `calendar.ics`    | All NRA deadlines, without start events    |
 
 Each deadline is an all-day event on its moved date. The profile feeds also contain one event on the safe start day and one event on the tight start day.
 
@@ -204,37 +204,37 @@ The Council of Ministers can declare extra days off or working Saturdays. The bu
 
 ## Project layout
 
-| Path | Contents |
-| --- | --- |
-| `data/sources/` | Original NRA documents and their metadata |
-| `data/holidays.json` | Extra days off and working days |
-| `data/settings.json` | Safe and tight buffers |
-| `src/docx.ts` | Reads paragraphs from a `.docx` file |
-| `src/parse.ts` | Parsers for the tax calendar and the social-insurance calendar |
-| `src/holidays.ts` | Bulgarian public holidays, moved deadlines and start days |
-| `src/audience.ts` | Rules that select the obligations of each self-employed profile |
-| `src/audience-check.ts` | Build-time check of the core obligations of each profile |
-| `src/profile.ts` | Profiles and calendar feeds |
-| `src/ics.ts` | iCalendar export |
-| `src/refetch.ts` | Downloads the calendars from the NRA website |
-| `src/build-data.ts` | Effect program that writes `dist/data/*.json` and `dist/calendar.ics` |
-| `web/` | Page, styles and browser code |
-| `scripts/build.ts` | Full build: data, bundle and static files |
-| `scripts/serve.ts` | Static server for `dist/` |
-| `scripts/refetch.ts` | Runs the refetch and writes the GitHub Actions output |
-| `.github/workflows/` | Build, deployment and monthly refetch |
-| `test/` | Tests that use the real 2026 documents |
+| Path                    | Contents                                                              |
+| ----------------------- | --------------------------------------------------------------------- |
+| `data/sources/`         | Original NRA documents and their metadata                             |
+| `data/holidays.json`    | Extra days off and working days                                       |
+| `data/settings.json`    | Safe and tight buffers                                                |
+| `src/docx.ts`           | Reads paragraphs from a `.docx` file                                  |
+| `src/parse.ts`          | Parsers for the tax calendar and the social-insurance calendar        |
+| `src/holidays.ts`       | Bulgarian public holidays, moved deadlines and start days             |
+| `src/audience.ts`       | Rules that select the obligations of each self-employed profile       |
+| `src/audience-check.ts` | Build-time check of the core obligations of each profile              |
+| `src/profile.ts`        | Profiles and calendar feeds                                           |
+| `src/ics.ts`            | iCalendar export                                                      |
+| `src/refetch.ts`        | Downloads the calendars from the NRA website                          |
+| `src/build-data.ts`     | Effect program that writes `dist/data/*.json` and `dist/calendar.ics` |
+| `web/`                  | Page, styles and browser code                                         |
+| `scripts/build.ts`      | Full build: data, bundle and static files                             |
+| `scripts/serve.ts`      | Static server for `dist/`                                             |
+| `scripts/refetch.ts`    | Runs the refetch and writes the GitHub Actions output                 |
+| `.github/workflows/`    | Build, deployment and monthly refetch                                 |
+| `test/`                 | Tests that use the real 2026 documents                                |
 
 ## Commands
 
-| Command | Action |
-| --- | --- |
-| `pnpm build` | Builds the full site into `dist/` |
-| `pnpm data` | Builds only the data files |
-| `pnpm refetch` | Downloads the current NRA calendars into `data/sources/` |
-| `pnpm serve` | Serves `dist/` |
-| `pnpm test` | Runs the tests |
-| `pnpm typecheck` | Runs the TypeScript compiler |
+| Command          | Action                                                   |
+| ---------------- | -------------------------------------------------------- |
+| `pnpm build`     | Builds the full site into `dist/`                        |
+| `pnpm data`      | Builds only the data files                               |
+| `pnpm refetch`   | Downloads the current NRA calendars into `data/sources/` |
+| `pnpm serve`     | Serves `dist/`                                           |
+| `pnpm test`      | Runs the tests                                           |
+| `pnpm typecheck` | Runs the TypeScript compiler                             |
 
 ## Disclaimer
 

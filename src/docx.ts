@@ -12,7 +12,7 @@ const decodeEntities = (s: string): string =>
   s
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))
@@ -55,5 +55,5 @@ export const readParagraphs = (source: string, bytes: Uint8Array) =>
       if (doc === undefined) throw new Error("word/document.xml is missing")
       return paragraphsFromXml(strFromU8(doc))
     },
-    catch: (e) => new ParseError({ source, message: `Cannot read DOCX: ${String(e)}` })
+    catch: (e) => new ParseError({ source, message: `Cannot read DOCX: ${String(e)}` }),
   })
