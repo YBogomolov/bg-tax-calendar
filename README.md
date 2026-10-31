@@ -114,28 +114,6 @@ To use a different port or address, set `PORT` and `HOST`, for example `PORT=900
 
 `dist/` contains only static files. You can also serve it with Caddy, nginx or any other static server.
 
-## Run on the Mac mini at login
-
-1. Build the site with `pnpm build`.
-2. Install the launchd agent:
-
-   ```sh
-   PORT=8080 ./deploy/install-launchd.sh
-   ```
-
-3. Open `http://<mac-mini-name>.local:8080/` from a device on the home network.
-
-The agent restarts the server if it stops. The server writes its log to `serve.log`.
-
-To remove the agent, run these commands:
-
-```sh
-launchctl bootout gui/$(id -u)/com.bg-tax-calendar
-rm ~/Library/LaunchAgents/com.bg-tax-calendar.plist
-```
-
-The server reads `dist/` from disk for each request. After a rebuild, you do not have to restart it.
-
 ## Subscribe in a calendar app
 
 Open "Абонамент за календар" (calendar feeds) on the page. Click "Абониране" (subscribe) for the feeds that match your profile. The page marks these feeds with a tick.
