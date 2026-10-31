@@ -19,6 +19,8 @@
       href="https://github.com/YBogomolov/bg-tax-calendar"
       aria-label="Изходен код в GitHub"
       title="Изходен код в GitHub"
+      data-i18n-title="github"
+      data-i18n-aria-label="github"
     >
       <svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true">
         <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z" />
@@ -35,62 +37,79 @@
     </a>
     <header class="top">
       <div class="brand">
-        <h1>Данъчен календар <span id="year-label"></span></h1>
-        <p class="sub" id="subtitle">Срокове от официалните календари на Националната агенция за приходите (НАП)</p>
+        <h1><span data-i18n="heading">Данъчен календар</span> <span id="year-label"></span></h1>
+        <p class="sub" id="subtitle" data-i18n="subtitle">
+          Срокове от официалните календари на Националната агенция за приходите (НАП)
+        </p>
       </div>
       <nav class="actions">
-        <select id="year-select" aria-label="Година" hidden></select>
+        <select id="lang-select" aria-label="Език" data-i18n-aria-label="language"></select>
+        <select id="year-select" aria-label="Година" data-i18n-aria-label="year" hidden></select>
         <details class="feeds">
-          <summary class="btn">Абонамент за календар</summary>
+          <summary class="btn" data-i18n="feeds">Абонамент за календар</summary>
           <div class="feeds-menu" id="feeds"></div>
         </details>
       </nav>
     </header>
 
-    <section class="filters" aria-label="Филтри">
-      <div class="segmented" id="view" role="radiogroup" aria-label="Изглед">
-        <button type="button" data-value="self" role="radio">Самоосигуряващи се</button>
-        <button type="button" data-value="all" role="radio">Всички срокове</button>
+    <section class="filters" aria-label="Филтри" data-i18n-aria-label="filters">
+      <div class="segmented" id="view" role="radiogroup" aria-label="Изглед" data-i18n-aria-label="view">
+        <button type="button" data-value="self" role="radio" data-i18n="viewSelf">Самоосигуряващи се</button>
+        <button type="button" data-value="all" role="radio" data-i18n="viewAll">Всички срокове</button>
       </div>
       <div class="filter-group" id="self-filters">
-        <div class="segmented" id="activity" role="radiogroup" aria-label="Вид дейност">
+        <div class="segmented" id="activity" role="radiogroup" aria-label="Вид дейност" data-i18n-aria-label="activity">
           <button
             type="button"
             data-value="freelancer"
             role="radio"
             title="Свободна професия, занаятчия и др. (чл. 29 ЗДДФЛ)"
+            data-i18n="freelancer"
+            data-i18n-title="freelancerHint"
           >
             Свободна професия
           </button>
-          <button type="button" data-value="trader" role="radio" title="Едноличен търговец">
+          <button
+            type="button"
+            data-value="trader"
+            role="radio"
+            title="Едноличен търговец"
+            data-i18n="trader"
+            data-i18n-title="traderHint"
+          >
             Едноличен търговец (ЕТ)
           </button>
         </div>
-        <label class="toggle"><input type="checkbox" id="opt-vat" /> Регистрация по ДДС</label>
-        <label class="toggle"><input type="checkbox" id="opt-property" /> Данък върху недвижими имоти</label>
+        <label class="toggle"
+          ><input type="checkbox" id="opt-vat" /> <span data-i18n="vat">Регистрация по ДДС</span></label
+        >
+        <label class="toggle"
+          ><input type="checkbox" id="opt-property" />
+          <span data-i18n="property">Данък върху недвижими имоти</span></label
+        >
       </div>
       <div class="filter-group" id="all-filters">
-        <div class="segmented" id="source" role="radiogroup" aria-label="Календар">
-          <button type="button" data-value="all" role="radio">Всички</button>
-          <button type="button" data-value="tax" role="radio">Данъци</button>
-          <button type="button" data-value="social" role="radio">Осигуровки</button>
+        <div class="segmented" id="source" role="radiogroup" aria-label="Календар" data-i18n-aria-label="calendar">
+          <button type="button" data-value="all" role="radio" data-i18n="sourceAll">Всички</button>
+          <button type="button" data-value="tax" role="radio" data-i18n="sourceTax">Данъци</button>
+          <button type="button" data-value="social" role="radio" data-i18n="sourceSocial">Осигуровки</button>
         </div>
-        <div id="chips" class="chips" role="group" aria-label="Категории"></div>
+        <div id="chips" class="chips" role="group" aria-label="Категории" data-i18n-aria-label="categories"></div>
       </div>
     </section>
 
     <main class="layout">
-      <section class="overview" aria-label="Преглед на годината">
+      <section class="overview" aria-label="Преглед на годината" data-i18n-aria-label="overview">
         <div id="months" class="months"></div>
         <p class="legend" id="legend"></p>
       </section>
 
       <aside class="panel" aria-live="polite">
         <div class="panel-head">
-          <h2 id="panel-title">Предстоящи</h2>
-          <button type="button" id="panel-back" class="link" hidden>← Предстоящи</button>
+          <h2 id="panel-title" data-i18n="upcoming">Предстоящи</h2>
+          <button type="button" id="panel-back" class="link" data-i18n="back" hidden>← Предстоящи</button>
         </div>
-        <div id="panel-body" class="panel-body"><p class="muted">Зареждане…</p></div>
+        <div id="panel-body" class="panel-body"><p class="muted" data-i18n="loading">Зареждане…</p></div>
       </aside>
     </main>
 

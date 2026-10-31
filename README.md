@@ -1,6 +1,25 @@
 # BG Tax Calendar
 
-A static website in Bulgarian that shows the Bulgarian tax and social-insurance deadlines for self-employed persons (самоосигуряващи се лица). The left side shows a year overview. The side panel shows the upcoming work. The site also publishes calendar feeds for Apple Calendar, Google Calendar and other calendar apps.
+A static website that shows the Bulgarian tax and social-insurance deadlines for self-employed persons (самоосигуряващи се лица). The left side shows a year overview. The side panel shows the upcoming work. The site also publishes calendar feeds for Apple Calendar, Google Calendar and other calendar apps.
+
+## Languages
+
+The site is available in Bulgarian, Russian, Ukrainian and English. Bulgarian is the default language. The page selects the language in this order:
+
+1. The `lang` parameter in the address, for example `?lang=en`.
+2. The language that the visitor selected before. The browser keeps this selection.
+3. The first browser language that the site supports.
+
+The site translates the interface, the short summaries of the obligations and the category names. The official NRA texts stay in Bulgarian. In the other languages, each card shows the translated summary and the Bulgarian original below it.
+
+| File              | Contents                                        |
+| ----------------- | ----------------------------------------------- |
+| `src/i18n.ts`     | Languages, counted forms and feed file names    |
+| `src/labels.ts`   | Summaries of the obligations and category names |
+| `web/messages.ts` | Interface texts                                 |
+| `src/ics.ts`      | Texts of the calendar events                    |
+
+If you add a text, add it to all four languages. If a language is missing, `pnpm typecheck` fails.
 
 ## Self-employed view
 
@@ -129,6 +148,8 @@ Open "Абонамент за календар" (calendar feeds) on the page. Cl
 | `property.ics`    | Property tax, with start events            |
 | `calendar.ics`    | All NRA deadlines, without start events    |
 
+These files are in Bulgarian. Each feed also has a Russian, a Ukrainian and an English version, for example `freelancer.ru.ics`, `freelancer.uk.ics` and `freelancer.en.ics`. The event titles of these versions contain the translated summaries. The event descriptions also contain the official Bulgarian text. The page shows the feeds in the selected language.
+
 Each deadline is an all-day event on its moved date. The profile feeds also contain one event on the safe start day and one event on the tight start day.
 
 ## GitHub Pages
@@ -204,26 +225,28 @@ The Council of Ministers can declare extra days off or working Saturdays. The bu
 
 ## Project layout
 
-| Path                    | Contents                                                              |
-| ----------------------- | --------------------------------------------------------------------- |
-| `data/sources/`         | Original NRA documents and their metadata                             |
-| `data/holidays.json`    | Extra days off and working days                                       |
-| `data/settings.json`    | Safe and tight buffers                                                |
-| `src/docx.ts`           | Reads paragraphs from a `.docx` file                                  |
-| `src/parse.ts`          | Parsers for the tax calendar and the social-insurance calendar        |
-| `src/holidays.ts`       | Bulgarian public holidays, moved deadlines and start days             |
-| `src/audience.ts`       | Rules that select the obligations of each self-employed profile       |
-| `src/audience-check.ts` | Build-time check of the core obligations of each profile              |
-| `src/profile.ts`        | Profiles and calendar feeds                                           |
-| `src/ics.ts`            | iCalendar export                                                      |
-| `src/refetch.ts`        | Downloads the calendars from the NRA website                          |
-| `src/build-data.ts`     | Effect program that writes `dist/data/*.json` and `dist/calendar.ics` |
-| `web/`                  | Page, styles and browser code                                         |
-| `scripts/build.ts`      | Full build: data, bundle and static files                             |
-| `scripts/serve.ts`      | Static server for `dist/`                                             |
-| `scripts/refetch.ts`    | Runs the refetch and writes the GitHub Actions output                 |
-| `.github/workflows/`    | Build, deployment and monthly refetch                                 |
-| `test/`                 | Tests that use the real 2026 documents                                |
+| Path                    | Contents                                                             |
+| ----------------------- | -------------------------------------------------------------------- |
+| `data/sources/`         | Original NRA documents and their metadata                            |
+| `data/holidays.json`    | Extra days off and working days                                      |
+| `data/settings.json`    | Safe and tight buffers                                               |
+| `src/docx.ts`           | Reads paragraphs from a `.docx` file                                 |
+| `src/parse.ts`          | Parsers for the tax calendar and the social-insurance calendar       |
+| `src/holidays.ts`       | Bulgarian public holidays, moved deadlines and start days            |
+| `src/audience.ts`       | Rules that select the obligations of each self-employed profile      |
+| `src/audience-check.ts` | Build-time check of the core obligations of each profile             |
+| `src/profile.ts`        | Profiles and calendar feeds                                          |
+| `src/i18n.ts`           | Languages and counted forms                                          |
+| `src/labels.ts`         | Translated summaries and category names                              |
+| `src/ics.ts`            | iCalendar export                                                     |
+| `src/refetch.ts`        | Downloads the calendars from the NRA website                         |
+| `src/build-data.ts`     | Effect program that writes `dist/data/*.json` and the calendar feeds |
+| `web/`                  | Page, styles, interface texts and browser code                       |
+| `scripts/build.ts`      | Full build: data, bundle and static files                            |
+| `scripts/serve.ts`      | Static server for `dist/`                                            |
+| `scripts/refetch.ts`    | Runs the refetch and writes the GitHub Actions output                |
+| `.github/workflows/`    | Build, deployment and monthly refetch                                |
+| `test/`                 | Tests that use the real 2026 documents                               |
 
 ## Commands
 

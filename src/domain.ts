@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { LANGS } from "./i18n.ts"
 
 /** ISO calendar date, for example `2026-04-30`. */
 export const IsoDate = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)))
@@ -55,6 +56,8 @@ export const Buffers = Schema.Struct({
 export type Buffers = typeof Buffers.Type
 
 export const Feed = Schema.Struct({
+  id: Schema.String,
+  lang: Schema.Literals(LANGS),
   file: Schema.String,
   title: Schema.String,
 })

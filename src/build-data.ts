@@ -21,6 +21,7 @@ import {
   previousWorkingDay,
   publicHolidays,
 } from "./holidays.ts"
+import { feedFile, LANGS } from "./i18n.ts"
 import { toIcs } from "./ics.ts"
 import { parseSocial, parseTax, type RawDeadline } from "./parse.ts"
 import { FEEDS, mergeSocial, narrowAll } from "./profile.ts"
@@ -152,18 +153,22 @@ export const buildData = Effect.fn("buildData")(function* (root: string, outDir:
     all.push(...deadlines)
   }
 
-  const index: CalendarIndex = { years, feeds: FEEDS.map(({ file, title }) => ({ file, title })) }
+  const feeds = LANGS.flatMap((lang) =>
+    FEEDS.map((feed) => ({ id: feed.id, lang, file: feedFile(feed.id, lang), title: feed.title[lang], feed }))
+  )
+  const index: CalendarIndex = { years, feeds: feeds.map(({ feed: _, ...rest }) => rest) }
   yield* fs.writeFileString(path.join(outDir, "data", "index.json"), JSON.stringify(index))
-  for (const feed of FEEDS) {
+  for (const { feed, lang, file, title } of feeds) {
     const list = feed.tags === undefined ? all : mergeSocial(narrowAll(all, feed.tags))
     const ics = toIcs(list, {
-      name: feed.title,
+      name: title,
       stamp: generatedAt,
       sourceUrl: "https://nra.bg/wps/portal/nra/calendar/calendar",
       startEvents: feed.tags !== undefined,
       buffers,
+      lang,
     })
-    yield* fs.writeFileString(path.join(outDir, feed.file), ics)
+    yield* fs.writeFileString(path.join(outDir, file), ics)
   }
   yield* Effect.log(`Wrote ${all.length} deadlines for ${years.join(", ")}`)
   return { years, count: all.length }

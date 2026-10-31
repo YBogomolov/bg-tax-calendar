@@ -1,4 +1,6 @@
 import type { Deadline, Tag } from "./domain.ts"
+import type { Translated } from "./i18n.ts"
+import { SOCIAL_CATEGORY } from "./labels.ts"
 
 export type Activity = "freelancer" | "trader"
 
@@ -37,7 +39,7 @@ export const mergeSocial = (list: ReadonlyArray<Deadline>): Array<Deadline> => {
     const i = slot.get(d.due)
     if (i === undefined) {
       slot.set(d.due, out.length)
-      out.push({ ...d, category: "Осигуровки", group: "Осигурителен календар" })
+      out.push({ ...d, category: SOCIAL_CATEGORY, group: "Осигурителен календар" })
     } else {
       const prev = out[i]!
       out[i] = { ...prev, items: [...prev.items, ...d.items], notes: [...prev.notes, ...d.notes] }
@@ -46,15 +48,54 @@ export const mergeSocial = (list: ReadonlyArray<Deadline>): Array<Deadline> => {
   return out
 }
 
-/** Calendar feeds written by the build. `tags` undefined means every deadline. */
+/** Calendar feeds written by the build, one file per language. `tags` undefined means every deadline. */
 export const FEEDS: ReadonlyArray<{
-  readonly file: string
-  readonly title: string
+  readonly id: string
+  readonly title: Translated
   readonly tags?: ReadonlyArray<Tag>
 }> = [
-  { file: "freelancer.ics", title: "Самоосигуряващи се: свободна професия", tags: ["freelancer"] },
-  { file: "sole-trader.ics", title: "Самоосигуряващи се: едноличен търговец (ЕТ)", tags: ["trader"] },
-  { file: "vat.ics", title: "Регистрирани по ДДС", tags: ["vat"] },
-  { file: "property.ics", title: "Данък върху недвижими имоти", tags: ["property"] },
-  { file: "calendar.ics", title: "Всички срокове на НАП" },
+  {
+    id: "freelancer",
+    title: {
+      bg: "Самоосигуряващи се: свободна професия",
+      ru: "Самозанятые: свободная профессия",
+      uk: "Самозайняті: вільна професія",
+      en: "Self-employed: freelancer",
+    },
+    tags: ["freelancer"],
+  },
+  {
+    id: "sole-trader",
+    title: {
+      bg: "Самоосигуряващи се: едноличен търговец (ЕТ)",
+      ru: "Самозанятые: единоличный торговец (ЕТ)",
+      uk: "Самозайняті: одноосібний торговець (ЕТ)",
+      en: "Self-employed: sole trader (ET)",
+    },
+    tags: ["trader"],
+  },
+  {
+    id: "vat",
+    title: {
+      bg: "Регистрирани по ДДС",
+      ru: "Зарегистрированные по НДС",
+      uk: "Зареєстровані платники ПДВ",
+      en: "VAT-registered",
+    },
+    tags: ["vat"],
+  },
+  {
+    id: "property",
+    title: {
+      bg: "Данък върху недвижими имоти",
+      ru: "Налог на недвижимость",
+      uk: "Податок на нерухомість",
+      en: "Property tax",
+    },
+    tags: ["property"],
+  },
+  {
+    id: "calendar",
+    title: { bg: "Всички срокове на НАП", ru: "Все сроки НАП", uk: "Усі терміни НАП", en: "All NRA deadlines" },
+  },
 ]

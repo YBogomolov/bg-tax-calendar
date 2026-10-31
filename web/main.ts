@@ -1,7 +1,9 @@
 import { Data, Effect } from "effect"
 import type { CalendarIndex, CalendarYear, Deadline, Feed, SourceKind } from "../src/domain.ts"
+import { DEFAULT_LANG, isLang, LANG_INFO, LANGS, type Lang, plural } from "../src/i18n.ts"
+import { actionLabel, CATEGORY_TITLES, categoryBadge, categoryName } from "../src/labels.ts"
 import { type Activity, defaultProfile, mergeSocial, narrowAll, type Profile, profileTags } from "../src/profile.ts"
-import { actionLabel, CATEGORY_NAMES, CATEGORY_TITLES } from "./labels.ts"
+import { type HtmlKey, type Messages, MESSAGES } from "./messages.ts"
 
 // ---------------------------------------------------------------------------
 // Data loading
@@ -26,8 +28,6 @@ const fetchJson = <A>(url: string) =>
     catch: (e) => new LoadError({ url, message: String(e) }),
   })
 
-const SOURCE_NAMES: Record<SourceKind, string> = { tax: "Данъчен календар", social: "Осигурителен календар" }
-
 // ---------------------------------------------------------------------------
 // Dates (ISO strings, computed in UTC so that the host time zone has no effect)
 // ---------------------------------------------------------------------------
@@ -50,25 +50,33 @@ const todayInSofia = (): string => {
   return `${get("year")}-${get("month")}-${get("day")}`
 }
 
-const fmtLong = new Intl.DateTimeFormat("bg-BG", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })
-const fmtShort = new Intl.DateTimeFormat("bg-BG", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
-const fmtMonth = new Intl.DateTimeFormat("bg-BG", { month: "long", timeZone: "UTC" })
-const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
-const fmtDate = new Intl.DateTimeFormat("bg-BG", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-/** Bulgarian counted forms: 1 срок, 2 срока; 1 ден, 2 дни. */
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-
-const relative = (today: string, iso: string): string => {
-  const n = diffDays(today, iso)
-  if (n === 0) return "днес"
-  if (n === 1) return "утре"
-  if (n === -1) return "вчера"
-  return n > 0 ? `след ${plural(n, "ден", "дни")}` : `преди ${plural(-n, "ден", "дни")}`
+/** Date formats and counted forms for one interface language. */
+const localise = (lang: Lang) => {
+  const locale = LANG_INFO[lang].locale
+  const m = MESSAGES[lang]
+  const long = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" })
+  const short = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
+  const month = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" })
+  const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+  const rel = new Intl.RelativeTimeFormat(locale, { numeric: "auto" })
+  return {
+    lang,
+    locale,
+    m,
+    long: (iso: string) => long.format(parseIso(iso)),
+    short: (iso: string) => short.format(parseIso(iso)),
+    month: (iso: string) => capitalise(month.format(parseIso(iso))),
+    date: (iso: string) => date.format(parseIso(iso)),
+    relative: (today: string, iso: string) => rel.format(diffDays(today, iso), "day"),
+    deadlines: (n: number) => plural(lang, n, m.deadlines),
+    /** "2 weeks", or days when the buffer is not whole weeks. */
+    weeks: (days: number) =>
+      days % 7 === 0 ? plural(lang, days / 7, m.weeksBefore) : plural(lang, days, m.daysBefore),
+  }
 }
-
-const weeks = (days: number) => (days % 7 === 0 ? plural(days / 7, "седмица", "седмици") : plural(days, "ден", "дни"))
+type Localised = ReturnType<typeof localise>
 
 // ---------------------------------------------------------------------------
 // State
@@ -78,6 +86,7 @@ type View = "self" | "all"
 type SourceFilter = "all" | SourceKind
 
 interface Prefs {
+  lang: Lang
   view: View
   profile: Profile
   source: SourceFilter
@@ -91,15 +100,36 @@ interface State extends Prefs {
   today: string
   selected: string | null
   horizon: number
+  t: Localised
 }
 
 const STORAGE_KEY = "bg-tax-calendar:prefs"
+
+/** Language from `?lang=`, then the browser languages, then Bulgarian. */
+const detectLang = (): Lang => {
+  const param = new URLSearchParams(location.search).get("lang")
+  if (isLang(param)) return param
+  for (const tag of navigator.languages ?? []) {
+    const primary = tag.toLowerCase().split("-")[0]
+    if (isLang(primary)) return primary
+  }
+  return DEFAULT_LANG
+}
+
 const loadPrefs = (): Prefs => {
-  const fallback: Prefs = { view: "self", profile: defaultProfile, source: "all", hidden: new Set() }
+  const fallback: Prefs = {
+    lang: detectLang(),
+    view: "self",
+    profile: defaultProfile,
+    source: "all",
+    hidden: new Set(),
+  }
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, unknown>
     const p = (raw["profile"] ?? {}) as Record<string, unknown>
+    const param = new URLSearchParams(location.search).get("lang")
     return {
+      lang: isLang(param) ? param : isLang(raw["lang"]) ? raw["lang"] : fallback.lang,
       view: raw["view"] === "all" ? "all" : "self",
       profile: {
         activity: p["activity"] === "trader" ? "trader" : "freelancer",
@@ -119,7 +149,7 @@ const savePrefs = (s: State) => {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ view: s.view, profile: s.profile, source: s.source, hidden: [...s.hidden] })
+      JSON.stringify({ lang: s.lang, view: s.view, profile: s.profile, source: s.source, hidden: [...s.hidden] })
     )
   } catch {
     // Storage can be unavailable (private mode); preferences then reset on reload.
@@ -138,13 +168,6 @@ const statusOf = (d: Deadline, today: string): Status => {
   if (today >= d.startTight) return "tight"
   if (today >= d.startSafe) return "safe"
   return "upcoming"
-}
-const STATUS_LABEL: Record<Status, string> = {
-  upcoming: "",
-  safe: "Започнете сега",
-  tight: "Спешно: започнете днес",
-  due: "Срокът е днес",
-  past: "Изтекъл",
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +192,26 @@ const h = <K extends keyof HTMLElementTagNameMap>(
   return el
 }
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
+
+/** Applies the static texts of `index.html` in the selected language. */
+const applyHtml = (lang: Lang, m: Messages) => {
+  document.documentElement.lang = lang
+  document.title = m.html.title
+  document.querySelector('meta[name="description"]')?.setAttribute("content", m.html.description)
+  const text = (key: string | undefined) => (key !== undefined && key in m.html ? m.html[key as HtmlKey] : undefined)
+  for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) {
+    const v = text(el.dataset["i18n"])
+    if (v !== undefined) el.textContent = v
+  }
+  for (const el of document.querySelectorAll<HTMLElement>("[data-i18n-title]")) {
+    const v = text(el.dataset["i18nTitle"])
+    if (v !== undefined) el.title = v
+  }
+  for (const el of document.querySelectorAll<HTMLElement>("[data-i18n-aria-label]")) {
+    const v = text(el.dataset["i18nAriaLabel"])
+    if (v !== undefined) el.setAttribute("aria-label", v)
+  }
+}
 
 /** Wires a segmented control: `data-value` buttons inside the element with `id`. */
 const segmented = (id: string, value: string, onChange: (v: string) => void) => {
@@ -221,7 +264,7 @@ const renderFilters = (s: State, rerender: () => void) => {
           type: "button",
           class: "chip",
           "aria-pressed": String(!s.hidden.has(cat)),
-          title: CATEGORY_TITLES[cat] ?? CATEGORY_NAMES[cat] ?? cat,
+          title: [categoryName(cat, s.lang), CATEGORY_TITLES[cat]].filter(Boolean).join(" — ") || cat,
         },
         h("i", { class: `dot ${source}` }),
         `${cat} `,
@@ -238,60 +281,59 @@ const renderFilters = (s: State, rerender: () => void) => {
 }
 
 const renderHeader = (s: State) => {
+  const { m, weeks } = s.t
   $("year-label").textContent = String(s.data.year)
   const { safeDays, tightDays } = s.data.buffers
   if (s.view === "self") {
-    const parts = [s.profile.activity === "freelancer" ? "свободна професия" : "едноличен търговец (ЕТ)"]
-    if (s.profile.vat) parts.push("регистрация по ДДС")
-    if (s.profile.property) parts.push("собственик на имот")
-    $("subtitle").textContent =
-      `Самоосигуряващо се лице: ${parts.join(", ")}. Започнете ${weeks(safeDays)} преди всеки срок, най-късно ${weeks(tightDays)} преди него.`
+    const parts = [s.profile.activity === "freelancer" ? m.profile.freelancer : m.profile.trader]
+    if (s.profile.vat) parts.push(m.profile.vat)
+    if (s.profile.property) parts.push(m.profile.property)
+    $("subtitle").textContent = m.subtitleSelf(parts.join(", "), weeks(safeDays), weeks(tightDays))
   } else {
-    $("subtitle").textContent = "Всички срокове от официалните календари на Националната агенция за приходите (НАП)"
+    $("subtitle").textContent = m.subtitleAll
   }
 
   const recommended = new Set(
     s.view === "self"
       ? [
-          s.profile.activity === "freelancer" ? "freelancer.ics" : "sole-trader.ics",
-          ...(s.profile.vat ? ["vat.ics"] : []),
-          ...(s.profile.property ? ["property.ics"] : []),
+          s.profile.activity === "freelancer" ? "freelancer" : "sole-trader",
+          ...(s.profile.vat ? ["vat"] : []),
+          ...(s.profile.property ? ["property"] : []),
         ]
-      : ["calendar.ics"]
+      : ["calendar"]
   )
   const base = new URL(".", location.href)
   $("feeds").replaceChildren(
-    h(
-      "p",
-      { class: "muted" },
-      "Абонирайте се в Apple Calendar или Google Calendar. Календарите за самоосигуряващи се съдържат и дните за начало."
-    ),
-    ...s.feeds.map((f) => {
-      const url = new URL(f.file, base)
-      return h(
-        "div",
-        { class: recommended.has(f.file) ? "feed recommended" : "feed" },
-        h("span", {}, f.title),
-        h("a", { href: `webcal://${url.host}${url.pathname}` }, "Абониране"),
-        h("a", { href: f.file, download: true }, "Изтегляне")
-      )
-    })
+    h("p", { class: "muted" }, m.feedsHint),
+    ...s.feeds
+      .filter((f) => f.lang === s.lang)
+      .map((f) => {
+        const url = new URL(f.file, base)
+        return h(
+          "div",
+          { class: recommended.has(f.id) ? "feed recommended" : "feed" },
+          h("span", {}, f.title),
+          h("a", { href: `webcal://${url.host}${url.pathname}` }, m.subscribe),
+          h("a", { href: f.file, download: true }, m.download)
+        )
+      })
   )
 }
 
 const renderLegend = (s: State) => {
+  const { m, weeks } = s.t
   const { safeDays, tightDays } = s.data.buffers
   $("legend").replaceChildren(
-    h("span", {}, h("i", { class: "dot tax" }), "Данъчен срок"),
-    h("span", {}, h("i", { class: "dot social" }), "Осигурителен срок"),
+    h("span", {}, h("i", { class: "dot tax" }), m.legend.tax),
+    h("span", {}, h("i", { class: "dot social" }), m.legend.social),
     ...(s.view === "self"
       ? [
-          h("span", {}, h("i", { class: "mark safe" }), `Начало (${weeks(safeDays)} преди срока)`),
-          h("span", {}, h("i", { class: "mark tight" }), `Най-късно начало (${weeks(tightDays)} преди срока)`),
+          h("span", {}, h("i", { class: "mark safe" }), m.legend.start(weeks(safeDays))),
+          h("span", {}, h("i", { class: "mark tight" }), m.legend.latestStart(weeks(tightDays))),
         ]
       : []),
-    h("span", {}, h("i", { class: "sw holiday" }), "Официален празник"),
-    h("span", {}, h("i", { class: "sw today" }), "Днес")
+    h("span", {}, h("i", { class: "sw holiday" }), m.legend.holiday),
+    h("span", {}, h("i", { class: "sw today" }), m.legend.today)
   )
 }
 
@@ -323,6 +365,7 @@ const dayIndex = (s: State, list: ReadonlyArray<Deadline>): Map<string, DayInfo>
 }
 
 const renderMonths = (s: State, rerender: () => void) => {
+  const { m } = s.t
   const year = s.data.year
   const holidays = new Set(s.data.holidays)
   const list = visible(s)
@@ -337,7 +380,7 @@ const renderMonths = (s: State, rerender: () => void) => {
     const first = `${year}-${String(i + 1).padStart(2, "0")}-01`
     const offset = (parseIso(first).getUTCDay() + 6) % 7
     const length = diffDays(first, toIso(new Date(Date.UTC(year, i + 1, 1))))
-    const cells: Array<HTMLElement> = WEEKDAYS.map((w) => h("span", { class: "wd" }, w))
+    const cells: Array<HTMLElement> = m.weekdays.map((w) => h("span", { class: "wd" }, w))
     for (let k = 0; k < offset; k++) cells.push(h("span"))
     for (let day = 1; day <= length; day++) {
       const iso = addDays(first, day - 1)
@@ -353,11 +396,11 @@ const renderMonths = (s: State, rerender: () => void) => {
       if (info.due.length > 0) classes.push("due")
       if (iso === s.selected) classes.push("selected")
       const label = [
-        fmtLong.format(parseIso(iso)),
-        holidays.has(iso) && "официален празник",
-        info.due.length > 0 && plural(info.due.length, "срок", "срока"),
-        info.safe.length > 0 && `начало: ${info.safe.length}`,
-        info.tight.length > 0 && `най-късно начало: ${info.tight.length}`,
+        s.t.long(iso),
+        holidays.has(iso) && m.day.holiday,
+        info.due.length > 0 && s.t.deadlines(info.due.length),
+        info.safe.length > 0 && m.day.start(info.safe.length),
+        info.tight.length > 0 && m.day.latestStart(info.tight.length),
       ]
         .filter(Boolean)
         .join(", ")
@@ -394,12 +437,7 @@ const renderMonths = (s: State, rerender: () => void) => {
     return h(
       "article",
       { class: current ? "month current" : "month" },
-      h(
-        "h3",
-        {},
-        capitalise(fmtMonth.format(parseIso(first))),
-        h("small", {}, count > 0 ? plural(count, "срок", "срока") : "")
-      ),
+      h("h3", {}, s.t.month(first), h("small", {}, count > 0 ? s.t.deadlines(count) : "")),
       h("div", { class: "grid" }, cells)
     )
   })
@@ -407,10 +445,11 @@ const renderMonths = (s: State, rerender: () => void) => {
 }
 
 const card = (s: State, d: Deadline) => {
-  const name = CATEGORY_NAMES[d.category]
+  const { m, short, weeks } = s.t
+  const name = categoryName(d.category, s.lang)
   const status = statusOf(d, s.today)
-  const labels = d.items.map((i) => actionLabel(i.text))
-  const preview = labels.filter((l) => l !== undefined).join(" · ") || d.items[0]?.text || d.group
+  const labels = d.items.map((i) => actionLabel(i.text, s.lang))
+  const summary = labels.filter((l) => l !== undefined).join(" · ")
   const { safeDays, tightDays } = s.data.buffers
   return h(
     "details",
@@ -421,30 +460,41 @@ const card = (s: State, d: Deadline) => {
       h(
         "div",
         { class: "card-top" },
-        h("span", { class: "badge", title: SOURCE_NAMES[d.source] }, d.category),
+        h(
+          "span",
+          {
+            class: "badge",
+            title: m.sourceNames[d.source],
+            lang: d.category === categoryBadge(d.category, s.lang) ? "bg" : undefined,
+          },
+          categoryBadge(d.category, s.lang)
+        ),
         name !== undefined && h("span", { class: "card-name", title: CATEGORY_TITLES[d.category] }, name),
-        status !== "upcoming" && status !== "past" && h("span", { class: `pill ${status}` }, STATUS_LABEL[status])
+        status !== "upcoming" && status !== "past" && h("span", { class: `pill ${status}` }, m.status[status])
       ),
-      h("p", { class: "preview" }, preview),
+      summary !== ""
+        ? h("p", { class: "preview" }, summary)
+        : h("p", { class: "preview", lang: "bg" }, d.items[0]?.text ?? d.group),
       h(
         "p",
         { class: "timeline" },
         h(
           "span",
-          { title: `${weeks(safeDays)} преди срока` },
+          { title: m.card.before(weeks(safeDays)) },
           h("i", { class: "mark safe" }),
-          `Начало ${fmtShort.format(parseIso(d.startSafe))}`
+          `${m.card.start} ${short(d.startSafe)}`
         ),
         h(
           "span",
-          { title: `${weeks(tightDays)} преди срока` },
+          { title: m.card.before(weeks(tightDays)) },
           h("i", { class: "mark tight" }),
-          `Най-късно ${fmtShort.format(parseIso(d.startTight))}`
+          `${m.card.latest} ${short(d.startTight)}`
         ),
-        h("span", {}, `Срок ${fmtShort.format(parseIso(d.due))}`)
+        h("span", {}, `${m.card.due} ${short(d.due)}`)
       )
     ),
-    d.group !== d.category && h("p", { class: "group" }, d.group),
+    m.card.official !== "" && h("p", { class: "official" }, m.card.official),
+    d.group !== d.category && h("p", { class: "group", lang: "bg" }, d.group),
     h(
       "ul",
       {},
@@ -453,17 +503,12 @@ const card = (s: State, d: Deadline) => {
           "li",
           {},
           labels[n] !== undefined && h("strong", {}, labels[n]),
-          h("span", { class: labels[n] !== undefined ? "bg-text" : "" }, i.text)
+          h("span", { class: labels[n] !== undefined ? "bg-text" : "", lang: "bg" }, i.text)
         )
       )
     ),
-    d.notes.map((n) => h("p", { class: "note" }, n)),
-    d.date !== d.due &&
-      h(
-        "p",
-        { class: "note moved" },
-        `Датата по календара е ${fmtShort.format(parseIso(d.date))} — неприсъствен ден, затова срокът изтича в първия следващ работен ден.`
-      )
+    d.notes.map((n) => h("p", { class: "note", lang: "bg" }, n)),
+    d.date !== d.due && h("p", { class: "note moved" }, m.card.moved(short(d.date)))
   )
 }
 
@@ -487,6 +532,7 @@ const groupBy = (list: ReadonlyArray<Deadline>, key: (d: Deadline) => string) =>
 }
 
 const renderPanel = (s: State, rerender: () => void) => {
+  const { m, long, relative, weeks } = s.t
   const body = $("panel-body")
   const back = $("panel-back")
   const list = visible(s)
@@ -494,7 +540,7 @@ const renderPanel = (s: State, rerender: () => void) => {
 
   if (s.selected !== null) {
     const day = s.selected
-    $("panel-title").textContent = fmtLong.format(parseIso(day))
+    $("panel-title").textContent = long(day)
     back.hidden = false
     back.onclick = () => {
       s.selected = null
@@ -505,7 +551,7 @@ const renderPanel = (s: State, rerender: () => void) => {
     if (info.due.length > 0)
       nodes.push(
         section(
-          "Срокове на този ден",
+          m.panel.onDay,
           undefined,
           info.due.map((d) => card(s, d))
         )
@@ -513,7 +559,7 @@ const renderPanel = (s: State, rerender: () => void) => {
     if (info.safe.length > 0)
       nodes.push(
         section(
-          `Начало (${weeks(safeDays)} преди срока)`,
+          m.legend.start(weeks(safeDays)),
           undefined,
           info.safe.map((d) => card(s, d))
         )
@@ -521,17 +567,17 @@ const renderPanel = (s: State, rerender: () => void) => {
     if (info.tight.length > 0)
       nodes.push(
         section(
-          `Най-късно начало (${weeks(tightDays)} преди срока)`,
+          m.legend.latestStart(weeks(tightDays)),
           undefined,
           info.tight.map((d) => card(s, d))
         )
       )
-    if (nodes.length === 1) nodes.push(h("p", { class: "empty" }, "Няма нищо за този ден."))
+    if (nodes.length === 1) nodes.push(h("p", { class: "empty" }, m.panel.nothing))
     body.replaceChildren(...nodes)
     return
   }
 
-  $("panel-title").textContent = "Предстоящи"
+  $("panel-title").textContent = m.html.upcoming
   back.hidden = true
   const nodes: Array<Node> = []
 
@@ -542,8 +588,8 @@ const renderPanel = (s: State, rerender: () => void) => {
   if (active.length > 0)
     nodes.push(
       section(
-        "За работа сега",
-        `${active.length} активни`,
+        m.panel.workNow,
+        m.panel.active(active.length),
         active.map((d) => card(s, d))
       )
     )
@@ -558,14 +604,14 @@ const renderPanel = (s: State, rerender: () => void) => {
   for (const [iso, items] of shown) {
     nodes.push(
       section(
-        `Начало ${fmtLong.format(parseIso(iso))}`,
+        m.panel.startOn(long(iso)),
         relative(s.today, iso),
         items.map((d) => card(s, d))
       )
     )
   }
   if (shown.length < later.length) {
-    const more = h("button", { type: "button", class: "btn more" }, "Покажи още")
+    const more = h("button", { type: "button", class: "btn more" }, m.panel.more)
     more.onclick = () => {
       s.horizon += 60
       rerender()
@@ -575,49 +621,47 @@ const renderPanel = (s: State, rerender: () => void) => {
 
   if (nodes.length === 0) {
     const yearOver = s.today > `${s.data.year}-12-31`
-    nodes.push(
-      h(
-        "p",
-        { class: "empty" },
-        yearOver
-          ? `Няма повече срокове в календара за ${s.data.year} г. НАП обикновено публикува следващия календар през януари. Сайтът го изтегля автоматично в началото на всеки месец.`
-          : "Няма предстоящи срокове за избраните филтри."
-      )
-    )
+    nodes.push(h("p", { class: "empty" }, yearOver ? m.panel.yearOver(s.data.year) : m.panel.none))
   }
   body.replaceChildren(...nodes)
 }
 
 const renderFoot = (s: State) => {
-  const generated = new Date(s.data.generatedAt).toLocaleString("bg-BG", { timeZone: "Europe/Sofia" })
+  const { m, date } = s.t
+  const generated = new Date(s.data.generatedAt).toLocaleString(s.t.locale, { timeZone: "Europe/Sofia" })
   $("foot").replaceChildren(
     h(
       "p",
       {},
-      "Източник: ",
+      m.foot.source,
       ...s.data.sources.flatMap((src, i) => [
         i > 0 ? ", " : "",
-        h("a", { href: src.page, rel: "noopener", target: "_blank" }, src.title),
-        ` (изтеглен на ${fmtDate.format(parseIso(src.retrieved))}, проверен на ${fmtDate.format(parseIso(src.checked))})`,
+        h("a", { href: src.page, rel: "noopener", target: "_blank", lang: "bg" }, src.title),
+        m.foot.dates(date(src.retrieved), date(src.checked)),
       ]),
-      `. Генериран на ${generated}.`
+      m.foot.generated(generated)
     ),
-    h(
-      "p",
-      {},
-      "Срок, който изтича в неприсъствен ден, се премества в първия следващ работен ден. Денят за начало се премества в предходния работен ден. ",
-      "Изгледът за самоосигуряващи се показва задълженията на самоосигуряващото се лице за собствените му доходи. Задълженията като работодател или платец на доходи не са включени. ",
-      "Винаги проверявайте документите на НАП, преди да подадете декларация. Тази страница не е правна консултация."
-    )
+    h("p", {}, m.foot.rules)
   )
+}
+
+/** Fills the language menu. Each option shows the language name in that language. */
+const renderLangSelect = (s: State, onChange: (lang: Lang) => void) => {
+  const select = $<HTMLSelectElement>("lang-select")
+  select.replaceChildren(
+    ...LANGS.map((l) => h("option", { value: l, lang: l, selected: l === s.lang }, LANG_INFO[l].name))
+  )
+  select.onchange = () => {
+    if (isLang(select.value)) onChange(select.value)
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-const showError = (message: string) => {
-  $("panel-body").replaceChildren(h("p", { class: "empty" }, `Календарът не може да се зареди: ${message}`))
+const showError = (m: Messages, message: string) => {
+  $("panel-body").replaceChildren(h("p", { class: "empty" }, m.loadError(message)))
 }
 
 const pickYear = (years: ReadonlyArray<number>, today: string): number | undefined => {
@@ -627,14 +671,18 @@ const pickYear = (years: ReadonlyArray<number>, today: string): number | undefin
   return past.length > 0 ? Math.max(...past) : years[0]
 }
 
+const prefs = loadPrefs()
+applyHtml(prefs.lang, MESSAGES[prefs.lang])
+
 const main = Effect.gen(function* () {
   const today = todayInSofia()
   const index = yield* fetchJson<CalendarIndex>("data/index.json")
   const year = pickYear(index.years, today)
-  if (year === undefined) return yield* new LoadError({ url: "data/index.json", message: "Няма налични години" })
+  if (year === undefined) return yield* new LoadError({ url: "data/index.json", message: MESSAGES[prefs.lang].noYears })
   const data = yield* fetchJson<CalendarYear>(`data/${year}.json`)
   const state: State = {
-    ...loadPrefs(),
+    ...prefs,
+    t: localise(prefs.lang),
     years: index.years,
     feeds: index.feeds,
     data,
@@ -652,6 +700,19 @@ const main = Effect.gen(function* () {
     renderFoot(state)
   }
 
+  renderLangSelect(state, (lang) => {
+    state.lang = lang
+    state.t = localise(lang)
+    savePrefs(state)
+    const url = new URL(location.href)
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", lang)
+      history.replaceState(null, "", url)
+    }
+    applyHtml(lang, state.t.m)
+    rerender()
+  })
+
   const select = $<HTMLSelectElement>("year-select")
   if (index.years.length > 1) {
     select.hidden = false
@@ -668,7 +729,7 @@ const main = Effect.gen(function* () {
               rerender()
             })
           ),
-          Effect.catch((e) => Effect.sync(() => showError(e.message)))
+          Effect.catch((e) => Effect.sync(() => showError(state.t.m, e.message)))
         )
       )
     }
@@ -684,4 +745,4 @@ const main = Effect.gen(function* () {
   rerender()
 })
 
-Effect.runFork(main.pipe(Effect.catch((e) => Effect.sync(() => showError(e.message)))))
+Effect.runFork(main.pipe(Effect.catch((e) => Effect.sync(() => showError(MESSAGES[prefs.lang], e.message)))))

@@ -13,7 +13,9 @@ import {
   publicHolidays,
   toIso,
 } from "../src/holidays.ts"
+import { feedFile, LANGS, plural } from "../src/i18n.ts"
 import { toIcs } from "../src/ics.ts"
+import { actionLabel, categoryName } from "../src/labels.ts"
 import { parseSocial, parseTax } from "../src/parse.ts"
 import { findCalendarLinks, findDocxLink, INDEX_URL } from "../src/refetch.ts"
 
@@ -214,31 +216,32 @@ describe("buffers", () => {
   })
 })
 
-describe("ics", () => {
-  const deadline: Deadline = {
-    id: "tax-2026-01-14-ддс",
-    source: "tax",
-    date: "2026-01-14",
-    due: "2026-01-14",
-    startSafe: "2025-12-31",
-    startTight: "2026-01-07",
-    category: "ЗДДС",
-    group: "ЗДДС",
-    items: [
-      {
-        text: "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС",
-        tags: ["vat"],
-      },
-    ],
-    notes: [],
-  }
-  const options = {
-    name: "Test",
-    stamp: "2026-10-30T10:00:00.000Z",
-    sourceUrl: "https://nra.bg/",
-    buffers: { safeDays: 14, tightDays: 7 },
-  }
+const deadline: Deadline = {
+  id: "tax-2026-01-14-ддс",
+  source: "tax",
+  date: "2026-01-14",
+  due: "2026-01-14",
+  startSafe: "2025-12-31",
+  startTight: "2026-01-07",
+  category: "ЗДДС",
+  group: "ЗДДС",
+  items: [
+    {
+      text: "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС",
+      tags: ["vat"],
+    },
+  ],
+  notes: [],
+}
+const options = {
+  name: "Test",
+  stamp: "2026-10-30T10:00:00.000Z",
+  sourceUrl: "https://nra.bg/",
+  buffers: { safeDays: 14, tightDays: 7 },
+  lang: "bg" as const,
+}
 
+describe("ics", () => {
   it("writes folded all-day events", () => {
     const ics = toIcs([deadline], { ...options, startEvents: false })
     expect(ics).toContain("DTSTART;VALUE=DATE:20260114\r\n")
@@ -252,6 +255,44 @@ describe("ics", () => {
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(3)
     expect(ics).toContain("DTSTART;VALUE=DATE:20251231\r\n")
     expect(ics).toContain("DTSTART;VALUE=DATE:20260107\r\n")
+  })
+})
+
+describe("i18n", () => {
+  const unfold = (ics: string) => ics.replace(/\r\n /g, "")
+
+  it("selects Russian, Ukrainian and Bulgarian counted forms", () => {
+    const weeks = { one: "неделю", few: "недели", many: "недель", other: "недели" }
+    expect(plural("ru", 1, weeks)).toBe("1 неделю")
+    expect(plural("ru", 2, weeks)).toBe("2 недели")
+    expect(plural("ru", 5, weeks)).toBe("5 недель")
+    expect(plural("uk", 21, { one: "тиждень", few: "тижні", many: "тижнів", other: "тижня" })).toBe("21 тиждень")
+    expect(plural("bg", 2, { one: "седмица", other: "седмици" })).toBe("2 седмици")
+  })
+
+  it("keeps the Bulgarian feed names and adds a suffix for other languages", () => {
+    expect(feedFile("freelancer", "bg")).toBe("freelancer.ics")
+    expect(feedFile("freelancer", "en")).toBe("freelancer.en.ics")
+  })
+
+  it("translates summaries and category names to every language", () => {
+    const text = "Подаване на справка-декларация по ЗДДС, ведно с отчетни регистри и внасяне на дължимия ДДС"
+    for (const lang of LANGS) {
+      expect(actionLabel(text, lang)).toBeTruthy()
+      expect(categoryName("ЗДДС", lang)).toBeTruthy()
+    }
+    expect(actionLabel(text, "en")).toBe("File the VAT return and pay the VAT")
+  })
+
+  it("writes translated feeds that keep the official Bulgarian text", () => {
+    const en = unfold(toIcs([deadline], { ...options, lang: "en", startEvents: true }))
+    expect(en).toContain("SUMMARY:Due · Value added tax: File the VAT return and pay the VAT")
+    expect(en).toContain("SUMMARY:Start (14 days) · ")
+    expect(en).toContain("Official NRA text (in Bulgarian):")
+    expect(en).toContain("Подаване на справка-декларация по ЗДДС")
+    const bg = unfold(toIcs([deadline], { ...options, startEvents: false }))
+    expect(bg).toContain("SUMMARY:Срок · ЗДДС: Подаване на справка-декларация")
+    expect(bg).not.toContain("Official")
   })
 })
 
